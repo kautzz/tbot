@@ -8,6 +8,7 @@ tbot (WIP)
 import time
 import datetime
 import simpleaudio as sa
+import json
 
 import logging as log
 import argparse
@@ -37,12 +38,13 @@ def play_notification_sound():
         play_obj.wait_done()
 
 
-def dump(*args):
-    print(' '.join([str(arg) for arg in args]))
+def dump(dict):
+    return '\n' + '\n' + json.dumps(dict, indent=4, default=str) + '\n' + '\n'
 
 
 def main():
-    print('Selecting Exchange ' + secrets.ex)
+    symbol = config.get('main', 'symbol')
+    print('Connecting To: ' + secrets.ex)
 
     exchange_class = getattr(ccxt, secrets.ex)
     exchange = exchange_class({
@@ -52,30 +54,30 @@ def main():
         'enableRateLimit': True,
     })
 
-    print(exchange.fetch_status())
-    print('')
+    exchange_status = exchange.fetch_status()
+    print('Exchange Status:' + dump(exchange_status))
 
-    print(exchange.has)
-    print('')
+    exchange_features = exchange.has
+    log.info('Exchange Features:' + dump(exchange_features))
 
     markets = exchange.load_markets()
-    tuples = list(ccxt.Exchange.keysort(markets).items())
+    del markets[symbol]['tiers']
+    print('Market Info For ' + symbol + ' :' + dump(markets[symbol]))
 
-    # output a table of all markets
-    dump('{:<15} {:<15} {:<15} {:<15}'.format('id', 'symbol', 'base', 'quote'))
-    for (k, v) in tuples:
-        dump('{:<15} {:<15} {:<15} {:<15}'.format(v['id'], v['symbol'], v['base'], v['quote']))
+    ticker = exchange.fetch_ticker(symbol)
+    print('Ticker For ' + symbol + ' :' + dump(ticker))
 
-    print('')
-    print(exchange.fetch_tickers(['IOTA/USD', 'BTC/USD']))
-    print('')
-    print(exchange.fetch_ticker('DOG/USD'))
+    wallets = exchange.fetch_balance()
+    print('Your Wallet Balances:' + dump(wallets['total']))
 
-    print('')
-    print(exchange.fetch_balance())
+    trades = exchange.fetch_my_trades()
 
-    print('')
-    print(exchange.fetch_my_trades())
+    for list_element in trades:
+        del list_element['info']
+
+    last_trade = trades[len(trades)-1]
+
+    print('Your Last Trade:' + dump(last_trade))
 
 
 if __name__ == "__main__":
