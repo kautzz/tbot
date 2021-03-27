@@ -9,6 +9,8 @@ import time
 import datetime
 import simpleaudio as sa
 import json
+import os
+import sys
 
 import logging as log
 import argparse
@@ -17,9 +19,21 @@ from configparser import ConfigParser
 import ccxt
 import secrets
 
+
 # Read Config File
 config = ConfigParser()
 config.read('settings.ini')
+
+
+# Global Variables
+symbol = config.get('main', 'symbol')
+symbol_single = symbol.split('/', 1)
+
+market = ''
+ticker = ''
+wallets = ''
+last_trade = ''
+
 
 # Command Line Options
 parser = argparse.ArgumentParser(description='tbot')
@@ -28,6 +42,7 @@ parser.add_argument("-v", "--verbose", help="increase output verbosity", action=
 args = parser.parse_args()
 if args.verbose:
     log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
+
 
 # Plays a notification sound if enabled in config
 def play_notification_sound():
@@ -38,14 +53,98 @@ def play_notification_sound():
         play_obj.wait_done()
 
 
+# Format Dicts For Output In CLI
 def dump(dict):
     return '\n' + '\n' + json.dumps(dict, indent=4, default=str) + '\n' + '\n'
 
 
-def main():
-    symbol = config.get('main', 'symbol')
-    print('Connecting To: ' + secrets.ex)
+# Get your last trade from the exchange and drop the info part
+def get_last_trade(exchange):
+    global last_trade
+    trades = exchange.fetch_my_trades()
+    last_trade = trades[len(trades)-1]
+    del last_trade['info']
 
+
+# Update the symbols ticker
+def get_ticker(exchange):
+    global ticker
+    ticker = exchange.fetch_ticker(symbol)
+
+
+# Update your wallet balance
+def get_wallet(exchange):
+    global wallets
+    wallets = exchange.fetch_balance()
+
+
+# Get Info About The Symbol About To Be Traded
+def get_market(exchange):
+    global market
+    markets = exchange.load_markets()
+    market = markets[symbol]
+
+
+# Show a summary of the most important Details
+def show_recap():
+    print('Your Last Trade:' + dump(last_trade))
+    print('Your Wallet Balances:' + dump(wallets['total']))
+    print('Ticker For ' + symbol + ' :' + dump(ticker))
+
+
+# Set Up Auto Trading Parameters
+def auto_trading_setup():
+    os.system('cls' if os.name == 'nt' else 'clear')
+    print('Setting Up Automatic Trading For Symbol: ' + symbol + '\n')
+    print('Current Prices:')
+    print(str(ticker['bid']) + ' Buy / ' + str(ticker['ask']) + ' Sell' + '\n')
+    print('Current Wallet Balances:')
+    print(str(wallets['total'][symbol_single[0]]) + ' ' + symbol_single[0])
+    print(str(wallets['total'][symbol_single[1]]) + ' ' + symbol_single[1] + '\n')
+
+    def sel_starting_operation():
+        starting_operation = input('Do You Want To [Q]uit or Start With [B]uying or [S]elling ' + symbol_single[0] + '? ')
+
+        if starting_operation == 'B' or starting_operation == 'b':
+            min_buy = round(market['limits']['amount']['min'] * ticker['bid'], 2)
+            print('Minimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
+
+            if wallets['total'][symbol_single[1]] < min_buy:
+                print('Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '\n')
+                sel_starting_operation()
+
+            else:
+                buy_in = float(input('How Much Do You Want To Invest? ' + symbol_single[1] + ': '))
+                print(str(buy_in))
+
+        elif starting_operation == 'S' or starting_operation == 's':
+            min_sell = market['limits']['amount']['min']
+            print('Minimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
+
+            if wallets['total'][symbol_single[0]] < min_sell:
+                print('Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '\n')
+                sel_starting_operation()
+
+            else:
+                sell_out = float(input('How Much Do You Want To Sell? ' + symbol_single[0] + ': '))
+                print(str(sell_out))
+
+        elif starting_operation == 'Q' or starting_operation == 'q':
+            sys.exit('User Quit The Program')
+
+
+        else:
+            print('Invalid Answer! Read And Repeat!')
+            sel_starting_operation()
+
+    sel_starting_operation()
+    print('Auto Trading Setup Complete!')
+
+
+def main():
+
+    # Log In To Exchange
+    print('Connecting To: ' + secrets.ex)
     exchange_class = getattr(ccxt, secrets.ex)
     exchange = exchange_class({
         'apiKey': secrets.apiKey,
@@ -54,31 +153,37 @@ def main():
         'enableRateLimit': True,
     })
 
+    # Check Status Of Exchange & Continue When OK
     exchange_status = exchange.fetch_status()
-    print('Exchange Status:' + dump(exchange_status))
+    log.info('Exchange Status:' + dump(exchange_status))
 
-    exchange_features = exchange.has
-    log.info('Exchange Features:' + dump(exchange_features))
+    if exchange_status['status'] == 'ok':
 
-    markets = exchange.load_markets()
-    del markets[symbol]['tiers']
-    print('Market Info For ' + symbol + ' :' + dump(markets[symbol]))
+        get_ticker(exchange)
+        get_market(exchange)
+        get_last_trade(exchange)
+        get_wallet(exchange)
 
-    ticker = exchange.fetch_ticker(symbol)
-    print('Ticker For ' + symbol + ' :' + dump(ticker))
+        if args.verbose:
+            # Show Features Supported By Exchage
+            exchange_features = exchange.has
+            log.info('Exchange Features:' + dump(exchange_features))
 
-    wallets = exchange.fetch_balance()
-    print('Your Wallet Balances:' + dump(wallets['total']))
+        if args.verbose:
+            # Show Symbol Details / Info
+            log.info('Market Info For ' + symbol + ' :' + dump(market))
 
-    trades = exchange.fetch_my_trades()
+        show_recap()
 
-    for list_element in trades:
-        del list_element['info']
+        cont = input('Continue To Automatic Trading Setup? [Y/n] ')
+        if cont == 'Y' or cont == 'y' or cont == '':
+            auto_trading_setup()
+        else:
+            return
 
-    last_trade = trades[len(trades)-1]
-
-    print('Your Last Trade:' + dump(last_trade))
-
+    else:
+        log.critical('Exchange Status Is Not OK!')
+        return
 
 if __name__ == "__main__":
     main()
