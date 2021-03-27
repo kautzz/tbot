@@ -44,6 +44,29 @@ if args.verbose:
     log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
+def print_header():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+    print(r"""
+       __  __          __
+      / /_/ /_  ____  / /_
+     / __/ __ \/ __ \/ __/
+    / /_/ /_/ / /_/ / /_
+    \__/_.___/\____/\__/__
+      ____ _/ / /  / /_/ /_  ___
+     / __ `/ / /  / __/ __ \/ _ \
+    / /_/ / / /  / /_/ / / /  __/
+    \__,_/_/_/   \__/_/ /_/\___/
+      ____________  ______  / /_____  _____
+     / ___/ ___/ / / / __ \/ __/ __ \/ ___/
+    / /__/ /  / /_/ / /_/ / /_/ /_/ (__  )
+    \___/_/   \__, / .___/\__/\____/____/
+             /____/_/
+
+    """)
+
+
+
 # Plays a notification sound if enabled in config
 def play_notification_sound():
     log.info('Playing Notification Sound If Enabled')
@@ -89,12 +112,12 @@ def get_market(exchange):
 def show_recap():
     print('Your Last Trade:' + dump(last_trade))
     print('Your Wallet Balances:' + dump(wallets['total']))
-    print('Ticker For ' + symbol + ' :' + dump(ticker))
 
 
 # Set Up Auto Trading Parameters
 def auto_trading_setup():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    print_header()
+
     print('Setting Up Automatic Trading For Symbol: ' + symbol + '\n')
     print('Current Prices:')
     print(str(ticker['bid']) + ' Buy / ' + str(ticker['ask']) + ' Sell' + '\n')
@@ -110,7 +133,7 @@ def auto_trading_setup():
             print('Minimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
 
             if wallets['total'][symbol_single[1]] < min_buy:
-                print('Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '\n')
+                print('\n  Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '! \n')
                 sel_starting_operation()
 
             else:
@@ -122,7 +145,7 @@ def auto_trading_setup():
             print('Minimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
 
             if wallets['total'][symbol_single[0]] < min_sell:
-                print('Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '\n')
+                print('\n  Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '! \n')
                 sel_starting_operation()
 
             else:
@@ -142,9 +165,10 @@ def auto_trading_setup():
 
 
 def main():
+    print_header()
 
     # Log In To Exchange
-    print('Connecting To: ' + secrets.ex)
+    print('Connecting To Crypto Exchange: ' + secrets.ex)
     exchange_class = getattr(ccxt, secrets.ex)
     exchange = exchange_class({
         'apiKey': secrets.apiKey,
