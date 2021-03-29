@@ -140,13 +140,13 @@ def show_recap():
 
 
 # Buy Or Sell Crypto At Current Market Price
-def market_order(exchange, side, amount, price, cost):
-    print("\nexchange.createOrder(symbol, 'market', 'buy', amount, price)")
-    print('exchange.createOrder(' + symbol + ' market' + ' ' + side + ' ' + str(amount) + ' ' + str(price) + ')')
-    print('cost/gain: ' + str(cost) + '\n')
+def post_order(exchange, side, type, amount, price, cost):
+    print('\n===================================\n')
+    print('Posting Order: ' + type + ' ' + side + ' ' + str(amount) + ' ' + symbol_single[0] + ' @ ' + str(price) + ' ' + symbol_single[1])
+    print('Total: ' + str(cost) + ' ' + symbol_single[1] + '\n')
 
     if simulation == False:
-        order = exchange.createOrder(symbol, 'market', side, amount, price)
+        order = exchange.createOrder(symbol, type, side, amount, price)
         print(dump(order))
     else:
         print('You Are Running A Simulation! Nothing Happened...')
@@ -158,13 +158,14 @@ def market_order(exchange, side, amount, price, cost):
 def manual_trade(exchange):
     print_header()
 
-    print('Setting Up A Manual Trade: ' + symbol + '\n')
+    print('Setting Up A Manual Trade\n')
     print('Current Prices:')
     print(str(ticker['bid']) + ' Bid / ' + str(ticker['ask']) + ' Ask' + '\n')
     print('Current Wallet Balances:')
     print(str(wallets['total'][symbol_single[0]]) + ' ' + symbol_single[0])
     print(str(wallets['total'][symbol_single[1]]) + ' ' + symbol_single[1] + '\n')
 
+    # Manual Trade Menu
     def setup_manual_trade(exchange):
         print('===================================\n')
         print('[1] Buy ' + symbol_single[0])
@@ -174,9 +175,10 @@ def manual_trade(exchange):
 
         manual_trade_opt = input('Select An Option: ')
 
+        # Manual Buy
         if manual_trade_opt == '1':
-            min_buy = market['limits']['amount']['min'] * ticker['bid']
-            print('Minimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
+            min_buy = market['limits']['amount']['min'] * ticker['ask']
+            print('\nMinimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
 
             if wallets['total'][symbol_single[1]] < min_buy:
                 print('\n> Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '! \n')
@@ -185,11 +187,26 @@ def manual_trade(exchange):
             else:
                 buy_in = float(input('How Much Do You Want To Invest? ' + symbol_single[1] + ': '))
                 # TODO check for sufficient funds!
-                market_order(exchange, 'buy', buy_in/ticker['ask'], ticker['ask'], buy_in)
 
+                print('')
+                print('[3] Market Order @ ' + str(ticker['ask']))
+                print('[4] Limit Order')
+                print('-----------------------------------')
+                print('[Q] Back To Main Menu\n')
+                order_type = input('Select An Option: ')
+
+                if order_type == '3':
+                    post_order(exchange, 'buy', 'market', buy_in/ticker['ask'], ticker['ask'], buy_in)
+                elif order_type == '4':
+                    desired_price = float(input('At What Price Do You Want To Buy? ' + symbol_single[1] + ': '))
+                    post_order(exchange, 'buy', 'limit', buy_in/desired_price, desired_price, buy_in)
+                elif order_type == 'Q' or order_type == 'q':
+                    return
+
+        # Manual Sell
         elif manual_trade_opt == '2':
             min_sell = market['limits']['amount']['min']
-            print('Minimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
+            print('\nMinimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
 
             if wallets['total'][symbol_single[0]] < min_sell:
                 print('\n> Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '! \n')
@@ -198,7 +215,24 @@ def manual_trade(exchange):
             else:
                 sell_out = float(input('How Much Do You Want To Sell? ' + symbol_single[0] + ': '))
                 # TODO check for sufficient funds!
-                market_order(exchange, 'sell', sell_out, ticker['bid'], sell_out*ticker['bid'])
+
+                print('')
+                print('[3] Market Order @ ' + str(ticker['bid']))
+                print('[4] Limit Order')
+                print('-----------------------------------')
+                print('[Q] Back To Main Menu\n')
+                order_type = input('Select An Option: ')
+
+                if order_type == '3':
+                    post_order(exchange, 'sell', 'market', sell_out, ticker['bid'], sell_out*ticker['bid'])
+                elif order_type == '4':
+                    desired_price = float(input('At What Price Do You Want To Sell? ' + symbol_single[1] + ': '))
+                    post_order(exchange, 'sell', 'limit', sell_out, desired_price, sell_out*desired_price)
+                elif order_type == 'Q' or order_type == 'q':
+                    return
+
+                #def post_order(exchange, side, type, amount, price, cost):
+                #post_order(exchange, 'sell', sell_out, ticker['bid'], sell_out*ticker['bid'])
 
         elif manual_trade_opt == 'Q' or manual_trade_opt == 'q':
             return
@@ -209,6 +243,7 @@ def manual_trade(exchange):
 
         # TODO option for another manual trade
         input('\n> Press RETURN To Continue...')
+        fetch_all(exchange)
 
     setup_manual_trade(exchange)
 
