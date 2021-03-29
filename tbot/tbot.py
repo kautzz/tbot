@@ -24,16 +24,21 @@ import secrets
 config = ConfigParser()
 config.read('settings.ini')
 
-
 # Global Variables
 symbol = config.get('main', 'symbol')
 symbol_single = symbol.split('/', 1)
+
 simulation = config.getboolean('main', 'simulation')
+if simulation == True:
+    simulation_pretty = 'SIM'
+else:
+    simulation_pretty = 'HOT'
 
 market = ''
 ticker = ''
 wallets = ''
 last_trade = ''
+data_fetch_time = time.time()
 
 
 # Command Line Options
@@ -45,10 +50,11 @@ if args.verbose:
     log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
+# Just A Gimmick, Prints A Nice Header To The CLI
 def print_header():
-    # TODO uncomment:
     os.system('cls' if os.name == 'nt' else 'clear')
-
+    data_age = round(time.time() - data_fetch_time)
+    data_age_str = str(datetime.timedelta(seconds=data_age))
     print(r"""
    __  __          __
   / /_/ /_  ____  / /_
@@ -66,7 +72,9 @@ def print_header():
          /____/_/
 
     """)
-
+    print('-----------------------------------')
+    print(secrets.ex + ' / ' + symbol + ' / ' + simulation_pretty + ' / ' + data_age_str)
+    print('-----------------------------------\n')
 
 
 # Plays a notification sound if enabled in config
@@ -112,8 +120,10 @@ def get_market(exchange):
 
 # Get All Infos Needed From Exchange
 def fetch_all(exchange):
+    global data_fetch_time
+    data_fetch_time = time.time()
     print_header()
-    print('Fetching Data From ' + secrets.ex + '...')
+    print('Fetching Data...')
     get_ticker(exchange)
     get_market(exchange)
     get_last_trade(exchange)
@@ -124,81 +134,88 @@ def fetch_all(exchange):
 # Show a summary of the most important Details
 def show_recap():
     print_header()
-    print('\nHere Is A Recap Of Your Last Actions:\n')
+    print('Here Is A Recap Of Your Last Actions:')
     print('Your Last Trade:' + dump(last_trade))
     print('Your Wallet Balances:' + dump(wallets['total']))
 
 
 # Buy Or Sell Crypto At Current Market Price
-def market_order(side, amount, price, cost):
+def market_order(exchange, side, amount, price, cost):
     print("\nexchange.createOrder(symbol, 'market', 'buy', amount, price)")
     print('exchange.createOrder(' + symbol + ' market' + ' ' + side + ' ' + str(amount) + ' ' + str(price) + ')')
     print('cost/gain: ' + str(cost) + '\n')
 
     if simulation == False:
-        print('ordered for real!')
-        #order = exchange.createOrder(symbol, 'market', side, amount, price)
+        order = exchange.createOrder(symbol, 'market', side, amount, price)
+        print(dump(order))
     else:
-        print('simulated market order!')
+        print('You Are Running A Simulation! Nothing Happened...')
 
     play_notification_sound()
 
 
 # Set Up Auto Trading Parameters
-def manual_trade():
+def manual_trade(exchange):
     print_header()
 
-    print('Setting Up Automatic Trading For Symbol: ' + symbol + '\n')
+    print('Setting Up A Manual Trade: ' + symbol + '\n')
     print('Current Prices:')
-    print(str(ticker['bid']) + ' Buy / ' + str(ticker['ask']) + ' Sell' + '\n')
+    print(str(ticker['bid']) + ' Bid / ' + str(ticker['ask']) + ' Ask' + '\n')
     print('Current Wallet Balances:')
     print(str(wallets['total'][symbol_single[0]]) + ' ' + symbol_single[0])
     print(str(wallets['total'][symbol_single[1]]) + ' ' + symbol_single[1] + '\n')
 
-    def setup_manual_trade():
-        starting_operation = input('Do You Want To Go Back To [M]enu, [B]uy or [S]ell ' + symbol_single[0] + '? ')
+    def setup_manual_trade(exchange):
+        print('===================================\n')
+        print('[1] Buy ' + symbol_single[0])
+        print('[2] Sell ' + symbol_single[0])
+        print('-----------------------------------')
+        print('[Q] Back To Main Menu\n')
 
-        if starting_operation == 'B' or starting_operation == 'b':
-            min_buy = round(market['limits']['amount']['min'] * ticker['bid'], 5)
+        manual_trade_opt = input('Select An Option: ')
+
+        if manual_trade_opt == '1':
+            min_buy = market['limits']['amount']['min'] * ticker['bid']
             print('Minimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
 
             if wallets['total'][symbol_single[1]] < min_buy:
                 print('\n> Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '! \n')
-                setup_manual_trade()
+                setup_manual_trade(exchange)
 
             else:
                 buy_in = float(input('How Much Do You Want To Invest? ' + symbol_single[1] + ': '))
                 # TODO check for sufficient funds!
-                market_order('buy', buy_in/ticker['bid'], ticker['bid'], buy_in)
+                market_order(exchange, 'buy', buy_in/ticker['ask'], ticker['ask'], buy_in)
 
-        elif starting_operation == 'S' or starting_operation == 's':
+        elif manual_trade_opt == '2':
             min_sell = market['limits']['amount']['min']
             print('Minimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
 
             if wallets['total'][symbol_single[0]] < min_sell:
                 print('\n> Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '! \n')
-                setup_manual_trade()
+                setup_manual_trade(exchange)
 
             else:
                 sell_out = float(input('How Much Do You Want To Sell? ' + symbol_single[0] + ': '))
-                market_order('sell', sell_out, ticker['ask'], sell_out*ticker['ask'])
+                # TODO check for sufficient funds!
+                market_order(exchange, 'sell', sell_out, ticker['bid'], sell_out*ticker['bid'])
 
-        elif starting_operation == 'M' or starting_operation == 'm':
+        elif manual_trade_opt == 'Q' or manual_trade_opt == 'q':
             return
 
         else:
             print('\n> Invalid Answer! Read And Repeat! \n')
-            setup_manual_trade()
+            setup_manual_trade(exchange)
 
         # TODO option for another manual trade
-        input('> Press RETURN To Continue...')
+        input('\n> Press RETURN To Continue...')
 
-    setup_manual_trade()
+    setup_manual_trade(exchange)
 
 
 # Find Crypto Currencies on Exchange that are low minimum buy-in but rather high volume
 # Good for debugging
-def find_low_entry_cryptos(exchange):
+def find_cheap_tradepairs(exchange):
     print_header()
 
     tickers = exchange.fetch_tickers()
@@ -208,47 +225,52 @@ def find_low_entry_cryptos(exchange):
     tuples = list(ccxt.Exchange.keysort(markets).items())
 
     # output a table of all markets
-    print('{:<25} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<15} {:<15}'.format('symbol', 'taker', 'maker', 'limit', 'bid', 'buyin', '%', 'vol', 'vol/buyin'))
+    print('{:<10} {:<7} {:<7} {:<7} {:<10} {:<10} {:<6} {:<13} {:<13}'.format('symbol', 'taker', 'maker', 'limit', 'bid', 'buyin', '%', 'vol', 'vol/buyin'))
     for (k, v) in tuples:
         if v['quote'] == 'USD':
             if round(tickers[v['symbol']]['bid']*v['limits']['amount']['min'],6) <= 0.5:
                 if round(tickers[v['symbol']]['baseVolume']) >= 5000:
                     if round(tickers[v['symbol']]['baseVolume']/tickers[v['symbol']]['bid']*v['limits']['amount']['min'],4) >= 50:
-                        print('{:<25} {:<10} {:<10} {:<10} {:<10} {:<10} {:<10} {:<15} {:<15}'.format(v['symbol'], v['taker'], v['maker'], v['limits']['amount']['min'], tickers[v['symbol']]['bid'], round(tickers[v['symbol']]['bid']*v['limits']['amount']['min'],6), round(tickers[v['symbol']]['percentage'],3), round(tickers[v['symbol']]['baseVolume'],3), round(tickers[v['symbol']]['baseVolume']/tickers[v['symbol']]['bid']*v['limits']['amount']['min'],4)))
+                        print('{:<10} {:<7} {:<7} {:<7} {:<10} {:<10} {:<6} {:<13} {:<13}'.format(v['symbol'], v['taker'], v['maker'], v['limits']['amount']['min'], tickers[v['symbol']]['bid'], round(tickers[v['symbol']]['bid']*v['limits']['amount']['min'],6), round(tickers[v['symbol']]['percentage'],3), round(tickers[v['symbol']]['baseVolume'],3), round(tickers[v['symbol']]['baseVolume']/tickers[v['symbol']]['bid']*v['limits']['amount']['min'],4)))
 
 
+# This Shows The Main Menu In The CLI
 def menu(exchange):
     print_header()
-    print("""
-[0] Refetch All Data
-[1] Show Recap Of Last Actions
-[2] Manual Trade
-[3] Continue Auto Trading
-[4] Discover Low Entry Cryptos
-------------------------------
-[Q] Quit
-    """)
+    print('[0] Refetch All Data')
+    print('[1] Show Recap Of Last Actions')
+    print('[2] Set Up A Manual Trade')
+    print('[3] Start Auto Trading')
+    print('[4] Discover Cheap Trade Pairs')
+    print('-----------------------------------')
+    print('[Q] Quit\n')
 
     opt = input('Select An Option: ')
     print('')
 
     if opt == '0':
         fetch_all(exchange)
+
     elif opt == '1':
         show_recap()
         input('Press RETURN To Continue...')
+
     elif opt == '2':
-        manual_trade()
+        manual_trade(exchange)
+
     elif opt == '3':
         print_header()
         print('> This Aint Done Yet...')
         input('> Press RETURN To Continue...')
+
     elif opt == '4':
-        find_low_entry_cryptos(exchange)
-        input('> Press RETURN To Continue...')
+        find_cheap_tradepairs(exchange)
+        input('\n> Press RETURN To Continue...')
+
     elif opt == 'Q' or opt == 'q':
-        print_header()
-        sys.exit('> You Quit The Program! Dude You Gotta Spend Money To Make Money...\n')
+        os.system('cls' if os.name == 'nt' else 'clear')
+        sys.exit('You Quit The Program!\nBruv You Gotta Spend Money To Make Money...\n')
+
     else:
         print_header()
         print('> Invalid Answer! Read And Repeat!')
@@ -259,7 +281,7 @@ def main():
     print_header()
 
     # Log In To Exchange
-    print('Connecting To Crypto Exchange: ' + secrets.ex)
+    print('Connecting To Crypto Exchange...')
     exchange_class = getattr(ccxt, secrets.ex)
     exchange = exchange_class({
         'apiKey': secrets.apiKey,
@@ -290,7 +312,7 @@ def main():
 
     else:
         log.critical('Exchange Status Is Not OK!')
-        return
+
 
 if __name__ == "__main__":
     main()
