@@ -38,6 +38,7 @@ market = ''
 ticker = ''
 wallets = ''
 last_trade = ''
+open_orders = ''
 data_fetch_time = time.time()
 
 
@@ -94,21 +95,31 @@ def dump(dict):
 # Get your last trade from the exchange and drop the info part
 def get_last_trade(exchange):
     global last_trade
-    trades = exchange.fetch_my_trades()
+    trades = exchange.fetch_my_trades(symbol)
     last_trade = trades[len(trades)-1]
     del last_trade['info']
+
+
+# Get All Open Orders
+def get_open_orders(exchange):
+    global open_orders
+    open_orders = exchange.fetch_open_orders(symbol)
+    for list_element in open_orders:
+	       del list_element['info']
 
 
 # Update the symbols ticker
 def get_ticker(exchange):
     global ticker
     ticker = exchange.fetch_ticker(symbol)
+    del ticker['info']
 
 
 # Update your wallet balance
 def get_wallet(exchange):
     global wallets
     wallets = exchange.fetch_balance()
+    del wallets['info']
 
 
 # Get Info About The Symbol About To Be Traded
@@ -128,16 +139,31 @@ def fetch_all(exchange):
     get_market(exchange)
     get_last_trade(exchange)
     get_wallet(exchange)
+    get_open_orders(exchange)
     print('Done!')
 
 
 # Show a summary of the most important Details
-def show_recap():
+def show_summary():
     print_header()
-    print('Here Is A Recap Of Your Last Actions:')
-    print('Your Last Trade:' + dump(last_trade))
-    print('Your Wallet Balances:' + dump(wallets['total']))
+    print('Here Is A Summary Of Your Data:')
+    print('Fetched At: ' + time.ctime(data_fetch_time) + '\n')
 
+    wallet_summary = wallets
+    del wallet_summary['free']
+    del wallet_summary['used']
+    del wallet_summary['total']
+    print('Your Wallet Balances:' + dump(wallet_summary))
+
+    print('Open Orders: ' + dump(open_orders))
+
+    print('Your Last Trade:' + dump(last_trade))
+
+    market_summary = market
+    del market_summary['tiers']
+    print('Market Info: ' + dump(market_summary))
+
+    print('Ticker: ' + dump(ticker))
 
 # Buy Or Sell Crypto At Current Market Price
 def post_order(exchange, side, type, amount, price, cost):
@@ -154,6 +180,25 @@ def post_order(exchange, side, type, amount, price, cost):
     play_notification_sound()
 
 
+def auto_trade(exchange):
+    exchange_features = exchange.has
+    print('Exchange Features:' + dump(exchange_features))
+
+    print("fetchOpenOrders")
+    print(dump(exchange.fetch_open_orders()))
+
+    print("fetchClosedOrders")
+    print(dump(exchange.fetch_closed_orders()))
+
+    print("fetchClosedOrder")
+    print(dump(exchange.fetch_closed_order('61648992890')))
+
+    print("fetchOpenOrder")
+    print(dump(exchange.fetch_open_order('61585221601')))
+
+    input('Press Any Key To Continue...')
+
+
 # Set Up Auto Trading Parameters
 def manual_trade(exchange):
     print_header()
@@ -162,8 +207,8 @@ def manual_trade(exchange):
     print('Current Prices:')
     print(str(ticker['bid']) + ' Bid / ' + str(ticker['ask']) + ' Ask' + '\n')
     print('Current Wallet Balances:')
-    print(str(wallets['total'][symbol_single[0]]) + ' ' + symbol_single[0])
-    print(str(wallets['total'][symbol_single[1]]) + ' ' + symbol_single[1] + '\n')
+    print(str(wallets['free'][symbol_single[0]]) + ' ' + symbol_single[0] + ' (used ' + str(wallets['used'][symbol_single[0]]) + ')')
+    print(str(wallets['free'][symbol_single[1]]) + ' ' + symbol_single[1] + ' (used ' + str(wallets['used'][symbol_single[1]]) + ')' + '\n')
 
     # Manual Trade Menu
     def setup_manual_trade(exchange):
@@ -180,7 +225,7 @@ def manual_trade(exchange):
             min_buy = market['limits']['amount']['min'] * ticker['ask']
             print('\nMinimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
 
-            if wallets['total'][symbol_single[1]] < min_buy:
+            if wallets['free'][symbol_single[1]] < min_buy:
                 print('\n> Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '! \n')
                 setup_manual_trade(exchange)
 
@@ -208,7 +253,7 @@ def manual_trade(exchange):
             min_sell = market['limits']['amount']['min']
             print('\nMinimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
 
-            if wallets['total'][symbol_single[0]] < min_sell:
+            if wallets['free'][symbol_single[0]] < min_sell:
                 print('\n> Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '! \n')
                 setup_manual_trade(exchange)
 
@@ -273,12 +318,13 @@ def find_cheap_tradepairs(exchange):
 def menu(exchange):
     print_header()
     print('[0] Refetch All Data')
-    print('[1] Show Recap Of Last Actions')
+    print('[1] Show Summary')
     print('[2] Set Up A Manual Trade')
     print('[3] Start Auto Trading')
     print('[4] Discover Cheap Trade Pairs')
     print('-----------------------------------')
     print('[Q] Quit\n')
+    print('[T] Features In Test\n')
 
     opt = input('Select An Option: ')
     print('')
@@ -287,7 +333,7 @@ def menu(exchange):
         fetch_all(exchange)
 
     elif opt == '1':
-        show_recap()
+        show_summary()
         input('Press RETURN To Continue...')
 
     elif opt == '2':
@@ -305,6 +351,15 @@ def menu(exchange):
     elif opt == 'Q' or opt == 'q':
         os.system('cls' if os.name == 'nt' else 'clear')
         sys.exit('You Quit The Program!\nBruv You Gotta Spend Money To Make Money...\n')
+
+
+    elif opt == 'T' or opt == 't':
+        print('Feature In Development')
+        time.sleep(3)
+        auto_trade(exchange)
+        print('Done!')
+        time.sleep(3)
+
 
     else:
         print_header()
