@@ -24,6 +24,7 @@ import secrets
 config = ConfigParser()
 config.read('settings.ini')
 
+
 # Global Variables
 symbol = config.get('main', 'symbol')
 symbol_single = symbol.split('/', 1)
@@ -41,6 +42,22 @@ last_trade = ''
 open_orders = ''
 data_fetch_time = time.time()
 
+bot_trades = [{
+    'trade': 0,
+    'id': '',
+    'timestamp': data_fetch_time,
+    'status': 'closed',
+    'type': '',
+    'side': '',
+    'symbol': symbol,
+    'price': 0.00,
+    'amount': 0.00,
+    'cost': 0.00,
+    'fee': 0.00,
+    'yield': 0.00,
+    'cumulative_profit': 0.00
+}]
+
 
 # Command Line Options
 parser = argparse.ArgumentParser(description='tbot')
@@ -51,9 +68,21 @@ if args.verbose:
     log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
+# Log In To Exchange
+print('Connecting To Crypto Exchange...')
+exchange_class = getattr(ccxt, secrets.ex)
+exchange = exchange_class({
+    'apiKey': secrets.apiKey,
+    'secret': secrets.apiSec,
+    'timeout': 30000,
+    'enableRateLimit': True,
+})
+
+
 # Just A Gimmick, Prints A Nice Header To The CLI
 def print_header():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    # TODO uncomment
+    #os.system('cls' if os.name == 'nt' else 'clear')
     data_age = round(time.time() - data_fetch_time)
     data_age_str = str(datetime.timedelta(seconds=data_age))
     print(r"""
@@ -93,7 +122,7 @@ def dump(dict):
 
 
 # Get your last trade from the exchange and drop the info part
-def get_last_trade(exchange):
+def get_last_trade():
     global last_trade
     trades = exchange.fetch_my_trades(symbol)
     last_trade = trades[len(trades)-1]
@@ -101,7 +130,7 @@ def get_last_trade(exchange):
 
 
 # Get All Open Orders
-def get_open_orders(exchange):
+def get_open_orders():
     global open_orders
     open_orders = exchange.fetch_open_orders(symbol)
     for list_element in open_orders:
@@ -109,37 +138,37 @@ def get_open_orders(exchange):
 
 
 # Update the symbols ticker
-def get_ticker(exchange):
+def get_ticker():
     global ticker
     ticker = exchange.fetch_ticker(symbol)
     del ticker['info']
 
 
 # Update your wallet balance
-def get_wallet(exchange):
+def get_wallet():
     global wallets
     wallets = exchange.fetch_balance()
     del wallets['info']
 
 
 # Get Info About The Symbol About To Be Traded
-def get_market(exchange):
+def get_market():
     global market
     markets = exchange.load_markets()
     market = markets[symbol]
 
 
 # Get All Infos Needed From Exchange
-def fetch_all(exchange):
+def fetch_all():
     global data_fetch_time
     data_fetch_time = time.time()
     print_header()
     print('Fetching Data...')
-    get_ticker(exchange)
-    get_market(exchange)
-    get_last_trade(exchange)
-    get_wallet(exchange)
-    get_open_orders(exchange)
+    get_ticker()
+    get_market()
+    get_last_trade()
+    get_wallet()
+    get_open_orders()
     print('Done!')
 
 
@@ -165,6 +194,7 @@ def show_summary():
 
     print('Ticker: ' + dump(ticker))
 
+
 # Buy Or Sell Crypto At Current Market Price
 def post_order(exchange, side, type, amount, price, cost):
     print('\n===================================\n')
@@ -180,27 +210,88 @@ def post_order(exchange, side, type, amount, price, cost):
     play_notification_sound()
 
 
-def auto_trade(exchange):
-    exchange_features = exchange.has
-    print('Exchange Features:' + dump(exchange_features))
+def auto_trade():
 
-    print("fetchOpenOrders")
-    print(dump(exchange.fetch_open_orders()))
+    # print("fetchClosedOrder")
+    # print(dump(exchange.fetch_closed_order('61648992890')))
+    #
+    # print("fetchOpenOrder")
+    # print(dump(exchange.fetch_open_order('61585221601')))
 
-    print("fetchClosedOrders")
-    print(dump(exchange.fetch_closed_orders()))
+    def bot_trade_complete_data(bot_trade):
+        bot_trade['cost'] = bot_trade['price'] * bot_trade['amount']
 
-    print("fetchClosedOrder")
-    print(dump(exchange.fetch_closed_order('61648992890')))
+        if bot_trade['type'] == 'limit':
+            bot_trade['fee'] = market['maker'] * bot_trade['cost']
+        elif bot_trade['type'] == 'market':
+            bot_trade['fee'] = market['taker'] * bot_trade['cost']
 
-    print("fetchOpenOrder")
-    print(dump(exchange.fetch_open_order('61585221601')))
+        if bot_trade['side'] == 'buy':
+            bot_trade['yield'] = (bot_trade['cost'] + bot_trade['fee']) * -1
+        elif bot_trade['side'] == 'sell':
+            bot_trade['yield'] = bot_trade['cost'] - bot_trade['fee']
+
+        bot_trade['cumulative_profit'] = bot_trades[len(bot_trades)-2]['cumulative_profit'] + bot_trade['yield']
+
+
+    print('Press [CONTROL + C] To Stop Trading!')
+    try:
+        while True:
+            bot_trades.append({
+                'trade': bot_trades[len(bot_trades)-1]['trade']+1,
+                'id': '',
+                'timestamp': time.time(),
+                'status': 'open',
+                'type': 'limit',
+                'side': 'buy',
+                'symbol': symbol,
+                'price': 0.1,
+                'amount': 100.00,
+                'cost': '',
+                'fee': '',
+                'yield': '',
+                'cumulative_profit': ''
+            })
+
+            bot_trade_complete_data(bot_trades[len(bot_trades)-1])
+            time.sleep(3)
+
+            bot_trades.append({
+                'trade': bot_trades[len(bot_trades)-1]['trade']+1,
+                'id': '',
+                'timestamp': time.time(),
+                'status': 'open',
+                'type': 'limit',
+                'side': 'sell',
+                'symbol': symbol,
+                'price': 0.2,
+                'amount': 100.00,
+                'cost': '',
+                'fee': '',
+                'yield': '',
+                'cumulative_profit': ''
+            })
+
+            bot_trade_complete_data(bot_trades[len(bot_trades)-1])
+            time.sleep(3)
+
+
+    except KeyboardInterrupt:
+        pass
+
+
+    print('***')
+    print(dump(bot_trades))
+
 
     input('Press Any Key To Continue...')
+    with open('logs/bot-trades_' + time.strftime('%d-%m-%Y_%H-%M-%S', time.localtime(time.time())) + '.log', 'w') as file:
+        file.write(dump(bot_trades))
+
 
 
 # Set Up Auto Trading Parameters
-def manual_trade(exchange):
+def manual_trade():
     print_header()
 
     print('Setting Up A Manual Trade\n')
@@ -211,7 +302,7 @@ def manual_trade(exchange):
     print(str(wallets['free'][symbol_single[1]]) + ' ' + symbol_single[1] + ' (used ' + str(wallets['used'][symbol_single[1]]) + ')' + '\n')
 
     # Manual Trade Menu
-    def setup_manual_trade(exchange):
+    def setup_manual_trade():
         print('===================================\n')
         print('[1] Buy ' + symbol_single[0])
         print('[2] Sell ' + symbol_single[0])
@@ -227,7 +318,7 @@ def manual_trade(exchange):
 
             if wallets['free'][symbol_single[1]] < min_buy:
                 print('\n> Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '! \n')
-                setup_manual_trade(exchange)
+                setup_manual_trade()
 
             else:
                 buy_in = float(input('How Much Do You Want To Invest? ' + symbol_single[1] + ': '))
@@ -255,7 +346,7 @@ def manual_trade(exchange):
 
             if wallets['free'][symbol_single[0]] < min_sell:
                 print('\n> Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '! \n')
-                setup_manual_trade(exchange)
+                setup_manual_trade()
 
             else:
                 sell_out = float(input('How Much Do You Want To Sell? ' + symbol_single[0] + ': '))
@@ -284,18 +375,18 @@ def manual_trade(exchange):
 
         else:
             print('\n> Invalid Answer! Read And Repeat! \n')
-            setup_manual_trade(exchange)
+            setup_manual_trade()
 
         # TODO option for another manual trade
         input('\n> Press RETURN To Continue...')
-        fetch_all(exchange)
+        fetch_all()
 
-    setup_manual_trade(exchange)
+    setup_manual_trade()
 
 
 # Find Crypto Currencies on Exchange that are low minimum buy-in but rather high volume
 # Good for debugging
-def find_cheap_tradepairs(exchange):
+def find_cheap_tradepairs():
     print_header()
 
     tickers = exchange.fetch_tickers()
@@ -315,7 +406,7 @@ def find_cheap_tradepairs(exchange):
 
 
 # This Shows The Main Menu In The CLI
-def menu(exchange):
+def menu():
     print_header()
     print('[0] Refetch All Data')
     print('[1] Show Summary')
@@ -323,21 +414,21 @@ def menu(exchange):
     print('[3] Start Auto Trading')
     print('[4] Discover Cheap Trade Pairs')
     print('-----------------------------------')
-    print('[Q] Quit\n')
+    print('[Q] Quit')
     print('[T] Features In Test\n')
 
     opt = input('Select An Option: ')
     print('')
 
     if opt == '0':
-        fetch_all(exchange)
+        fetch_all()
 
     elif opt == '1':
         show_summary()
         input('Press RETURN To Continue...')
 
     elif opt == '2':
-        manual_trade(exchange)
+        manual_trade()
 
     elif opt == '3':
         print_header()
@@ -345,7 +436,7 @@ def menu(exchange):
         input('> Press RETURN To Continue...')
 
     elif opt == '4':
-        find_cheap_tradepairs(exchange)
+        find_cheap_tradepairs()
         input('\n> Press RETURN To Continue...')
 
     elif opt == 'Q' or opt == 'q':
@@ -355,10 +446,7 @@ def menu(exchange):
 
     elif opt == 'T' or opt == 't':
         print('Feature In Development')
-        time.sleep(3)
-        auto_trade(exchange)
-        print('Done!')
-        time.sleep(3)
+        auto_trade()
 
 
     else:
@@ -370,23 +458,13 @@ def menu(exchange):
 def main():
     print_header()
 
-    # Log In To Exchange
-    print('Connecting To Crypto Exchange...')
-    exchange_class = getattr(ccxt, secrets.ex)
-    exchange = exchange_class({
-        'apiKey': secrets.apiKey,
-        'secret': secrets.apiSec,
-        'timeout': 30000,
-        'enableRateLimit': True,
-    })
-
     # Check Status Of Exchange & Continue When OK
     exchange_status = exchange.fetch_status()
     log.info('Exchange Status:' + dump(exchange_status))
 
     if exchange_status['status'] == 'ok':
 
-        fetch_all(exchange)
+        fetch_all()
 
         if args.verbose:
             # Show Features Supported By Exchage
@@ -398,7 +476,7 @@ def main():
             log.info('Market Info For ' + symbol + ' :' + dump(market))
 
         while True:
-            menu(exchange)
+            menu()
 
     else:
         log.critical('Exchange Status Is Not OK!')
