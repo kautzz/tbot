@@ -286,6 +286,7 @@ def auto_trade():
             last_order_status = exchange.fetch_closed_order(bot_trades[len(bot_trades)-1]['id'])
             print(dump(last_order_status))
             if last_order_status['status'] == 'closed':
+                bot_trades[len(bot_trades)-1]['status'] = 'closed'
                 break
         except:
             print('.')
