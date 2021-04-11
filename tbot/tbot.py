@@ -42,22 +42,6 @@ last_trade = ''
 open_orders = ''
 data_fetch_time = time.time()
 
-bot_trades = [{
-    'trade': 0,
-    'id': '',
-    'timestamp': data_fetch_time,
-    'status': 'closed',
-    'type': '',
-    'side': '',
-    'symbol': symbol,
-    'price': 0.00,
-    'amount': 0.00,
-    'cost': 0.00,
-    'fee': 0.00,
-    'yield': 0.00,
-    'cumulative_profit': 0.00
-}]
-
 
 # Command Line Options
 parser = argparse.ArgumentParser(description='tbot')
@@ -81,7 +65,7 @@ exchange = exchange_class({
 
 # Just A Gimmick, Prints A Nice Header To The CLI
 def print_header():
-    # TODO uncomment
+    # TODO uncomment in production
     #os.system('cls' if os.name == 'nt' else 'clear')
     data_age = round(time.time() - data_fetch_time)
     data_age_str = str(datetime.timedelta(seconds=data_age))
@@ -195,19 +179,20 @@ def show_summary():
     print('Ticker: ' + dump(ticker))
 
 
-# Buy Or Sell Crypto At Current Market Price
-def post_order(exchange, side, type, amount, price, cost):
+# Create an order to buy or sell Crypto
+def post_order(side, type, amount, price, cost):
     print('\n===================================\n')
     print('Posting Order: ' + type + ' ' + side + ' ' + str(amount) + ' ' + symbol_single[0] + ' @ ' + str(price) + ' ' + symbol_single[1])
     print('Total: ' + str(cost) + ' ' + symbol_single[1] + '\n')
 
     if simulation == False:
         order = exchange.createOrder(symbol, type, side, amount, price)
-        print(dump(order))
+        play_notification_sound()
+        return order
+
     else:
         print('You Are Running A Simulation! Nothing Happened...')
-
-    play_notification_sound()
+        return
 
 
 def auto_trade():
@@ -234,6 +219,113 @@ def auto_trade():
         bot_trade['cumulative_profit'] = bot_trades[len(bot_trades)-2]['cumulative_profit'] + bot_trade['yield']
 
 
+    # Decide Whether To Buy Or Sell First
+    ## Get last 24h high and low to get the range of price movement
+    range = ticker['high'] - ticker['low']
+    print('24h high-low range: ' + str(range))
+    print('24h avg price: ' + str(ticker['low'] + range / 2))
+    print('current price: ' + str(ticker['close']))
+    print('\nSetting Up Initial Trade!')
+
+    if ticker['low'] + range / 2 >= ticker['close']: #todo set to >= for production
+        print('Current Price Is On The LOW End Of The 24h Range! Buying First!')
+        print('\nCurrent Wallet Balance: ' + str(wallets['free'][symbol_single[1]]) + ' ' + symbol_single[1] + ' (used ' + str(wallets['used'][symbol_single[1]]) + ')')
+
+        min_buy = market['limits']['amount']['min'] * ticker['ask']
+        print('Minimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
+
+        if wallets['free'][symbol_single[1]] < min_buy:
+            print('\n> Your ' + symbol_single[1] + ' Balance Is Insufficient, Try Selling ' + symbol_single[0] + '! \n')
+            input('Press Any Key To Return To Main Menu...')
+            return
+
+        buy_in = float(input('How Much Do You Want To Invest? ' + symbol_single[1] + ': '))
+        # TODO check for sufficient funds!
+        order = post_order('buy', 'market', buy_in/ticker['ask'], ticker['ask'], buy_in)
+
+    else:
+        print('Current Price Is On The HIGH End Of The 24h Range! Selling First!')
+        print('\nCurrent Wallet Balance: ' + str(wallets['free'][symbol_single[0]]) + ' ' + symbol_single[0] + ' (used ' + str(wallets['used'][symbol_single[0]]) + ')')
+
+        min_sell = market['limits']['amount']['min']
+        print('Minimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
+
+        if wallets['free'][symbol_single[0]] < min_sell:
+            print('\n> Your ' + symbol_single[0] + ' Balance Is Insufficient, Try Buying ' + symbol_single[0] + '! \n')
+            input('Press Any Key To Return To Main Menu...')
+            return
+
+        sell_out = float(input('How Much Do You Want To Sell? ' + symbol_single[0] + ': '))
+        # TODO check for sufficient funds!
+        order = post_order('sell', 'market', sell_out, ticker['bid'], sell_out*ticker['bid'])
+
+    print(dump(order))
+    bot_trades = [{
+        'trade': 0,
+        'id': order['id'],
+        'timestamp': time.time(),
+        'exchangetime': order['datetime'],
+        'status': order['status'],
+        'type': order['type'],
+        'side': order['side'],
+        'symbol': order['symbol'],
+        'price': order['price'],
+        'amount': order['amount'],
+        'cost': 0.00,
+        'fee': 0.00,
+        'yield': 0.00,
+        'cumulative_profit': 0.00
+    }]
+    bot_trade_complete_data(bot_trades[len(bot_trades)-1])
+    print(dump(bot_trades))
+
+    # TODO make this a sep func
+    while True:
+        print("Waiting For Last Order To Complete ...")
+        try:
+            last_order_status = exchange.fetch_closed_order(bot_trades[len(bot_trades)-1]['id'])
+            print(dump(last_order_status))
+            if last_order_status['status'] == 'closed':
+                break
+        except:
+            print('.')
+            pass
+
+        time.sleep(5)
+
+    input('Debugging Break! Press Any Key To Continue...')
+
+    print('Press [CONTROL + C] To Stop Trading!')
+    try:
+        while True:
+            print('autotrading ... getting ticker')
+            get_ticker()
+
+            if bot_trades[len(bot_trades)-1]['side'] == 'sell':
+                print('Last: Sell. Next: Buy ...')
+
+                spend = bot_trades[len(bot_trades)-1]['yield'] - bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')
+                print('Next Investment: ' + str(spend) + ' Banked: ' + str(bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')))
+                fee = market['maker'] * spend
+                print('Next Fees: ' + str(fee))
+
+                min_target_price = (spend - fee) / bot_trades[len(bot_trades)-1]['amount']
+                print('Price No Profit: ' + str(min_target_price))
+
+                target_price = min_target_price - min_target_price * config.getfloat('auto_trade', 'price_change')
+                print('Price For Profit: ' + str(target_price))
+
+                est_outcome = spend / target_price
+                print('Outcome: ' + str(est_outcome))
+
+                time.sleep(100)
+                #next_target_price = ??
+
+
+    except KeyboardInterrupt:
+        pass
+
+    input('Debugging Break! Press Any Key To Continue...')
     print('Press [CONTROL + C] To Stop Trading!')
     try:
         while True:
@@ -290,7 +382,6 @@ def auto_trade():
 
 
 
-# Set Up Auto Trading Parameters
 def manual_trade():
     print_header()
 
@@ -311,7 +402,7 @@ def manual_trade():
 
         manual_trade_opt = input('Select An Option: ')
 
-        # Manual Buy
+        # Manual Buy TODO into sep func! reuse for initial trade in autotrader
         if manual_trade_opt == '1':
             min_buy = market['limits']['amount']['min'] * ticker['ask']
             print('\nMinimum Buy Is: ' + str(min_buy) + ' ' + symbol_single[1])
@@ -332,14 +423,14 @@ def manual_trade():
                 order_type = input('Select An Option: ')
 
                 if order_type == '3':
-                    post_order(exchange, 'buy', 'market', buy_in/ticker['ask'], ticker['ask'], buy_in)
+                    post_order('buy', 'market', buy_in/ticker['ask'], ticker['ask'], buy_in)
                 elif order_type == '4':
                     desired_price = float(input('At What Price Do You Want To Buy? ' + symbol_single[1] + ': '))
-                    post_order(exchange, 'buy', 'limit', buy_in/desired_price, desired_price, buy_in)
+                    post_order('buy', 'limit', buy_in/desired_price, desired_price, buy_in)
                 elif order_type == 'Q' or order_type == 'q':
                     return
 
-        # Manual Sell
+        # Manual Sell TODO into sep func! reuse for initial trade in autotrader
         elif manual_trade_opt == '2':
             min_sell = market['limits']['amount']['min']
             print('\nMinimum Sell Is: ' + str(min_sell) + ' ' + symbol_single[0])
@@ -360,15 +451,13 @@ def manual_trade():
                 order_type = input('Select An Option: ')
 
                 if order_type == '3':
-                    post_order(exchange, 'sell', 'market', sell_out, ticker['bid'], sell_out*ticker['bid'])
+                    post_order('sell', 'market', sell_out, ticker['bid'], sell_out*ticker['bid'])
                 elif order_type == '4':
                     desired_price = float(input('At What Price Do You Want To Sell? ' + symbol_single[1] + ': '))
-                    post_order(exchange, 'sell', 'limit', sell_out, desired_price, sell_out*desired_price)
+                    post_order('sell', 'limit', sell_out, desired_price, sell_out*desired_price)
                 elif order_type == 'Q' or order_type == 'q':
                     return
 
-                #def post_order(exchange, side, type, amount, price, cost):
-                #post_order(exchange, 'sell', sell_out, ticker['bid'], sell_out*ticker['bid'])
 
         elif manual_trade_opt == 'Q' or manual_trade_opt == 'q':
             return
@@ -440,12 +529,11 @@ def menu():
         input('\n> Press RETURN To Continue...')
 
     elif opt == 'Q' or opt == 'q':
-        os.system('cls' if os.name == 'nt' else 'clear')
+        #os.system('cls' if os.name == 'nt' else 'clear') # todo uncomment for production
         sys.exit('You Quit The Program!\nBruv You Gotta Spend Money To Make Money...\n')
 
 
     elif opt == 'T' or opt == 't':
-        print('Feature In Development')
         auto_trade()
 
 
