@@ -197,12 +197,6 @@ def post_order(side, type, amount, price, cost):
 
 def auto_trade():
 
-    # print("fetchClosedOrder")
-    # print(dump(exchange.fetch_closed_order('61648992890')))
-    #
-    # print("fetchOpenOrder")
-    # print(dump(exchange.fetch_open_order('61585221601')))
-
     def bot_trade_complete_data(bot_trade):
         bot_trade['cost'] = bot_trade['price'] * bot_trade['amount']
 
@@ -218,6 +212,23 @@ def auto_trade():
 
         bot_trade['cumulative_profit'] = bot_trades[len(bot_trades)-2]['cumulative_profit'] + bot_trade['yield']
 
+    def wait_for_order_to_complete():
+        print("Waiting For Last Order To Complete ...")
+        while True:
+            try:
+                last_order_status = exchange.fetch_closed_order(bot_trades[len(bot_trades)-1]['id'])
+                if last_order_status['status'] == 'closed':
+                    bot_trades[len(bot_trades)-1]['status'] = 'closed'
+                    print('Filled:')
+                    print(dump(bot_trades[len(bot_trades)-1]))
+                    break
+            except:
+                pass
+
+            time.sleep(5)
+
+
+    get_ticker()
 
     # Decide Whether To Buy Or Sell First
     ## Get last 24h high and low to get the range of price movement
@@ -259,7 +270,6 @@ def auto_trade():
         # TODO check for sufficient funds!
         order = post_order('sell', 'market', sell_out, ticker['bid'], sell_out*ticker['bid'])
 
-    print(dump(order))
     bot_trades = [{
         'trade': 0,
         'id': order['id'],
@@ -277,100 +287,88 @@ def auto_trade():
         'cumulative_profit': 0.00
     }]
     bot_trade_complete_data(bot_trades[len(bot_trades)-1])
-    print(dump(bot_trades))
+    wait_for_order_to_complete()
 
-    # TODO make this a sep func
-    while True:
-        print("Waiting For Last Order To Complete ...")
-        try:
-            last_order_status = exchange.fetch_closed_order(bot_trades[len(bot_trades)-1]['id'])
-            print(dump(last_order_status))
-            if last_order_status['status'] == 'closed':
-                bot_trades[len(bot_trades)-1]['status'] = 'closed'
-                break
-        except:
-            print('.')
-            pass
-
-        time.sleep(5)
 
     input('Debugging Break! Press Any Key To Continue...')
 
     print('Press [CONTROL + C] To Stop Trading!')
     try:
         while True:
-            print('autotrading ... getting ticker')
-            get_ticker()
-
             if bot_trades[len(bot_trades)-1]['side'] == 'sell':
-                print('Last: Sell. Next: Buy ...')
+                print('\nLast: Sell. Next: Buy ...')
 
                 spend = bot_trades[len(bot_trades)-1]['yield'] - bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')
                 print('Next Investment: ' + str(spend) + ' Banked: ' + str(bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')))
                 fee = market['maker'] * spend
                 print('Next Fees: ' + str(fee))
-
                 min_target_price = (spend - fee) / bot_trades[len(bot_trades)-1]['amount']
                 print('Price No Profit: ' + str(min_target_price))
-
                 target_price = min_target_price - min_target_price * config.getfloat('auto_trade', 'price_change')
                 print('Price For Profit: ' + str(target_price))
-
                 est_outcome = spend / target_price
                 print('Outcome: ' + str(est_outcome))
 
-                time.sleep(100)
-                #next_target_price = ??
+                order = post_order('buy', 'limit', spend/target_price, target_price, spend)
+                bot_trades.append({
+                    'trade': bot_trades[len(bot_trades)-1]['trade']+1,
+                    'id': order['id'],
+                    'timestamp': time.time(),
+                    'exchangetime': order['datetime'],
+                    'status': order['status'],
+                    'type': order['type'],
+                    'side': order['side'],
+                    'symbol': order['symbol'],
+                    'price': order['price'],
+                    'amount': order['amount'],
+                    'cost': 0.00,
+                    'fee': 0.00,
+                    'yield': 0.00,
+                    'cumulative_profit': 0.00
+                })
+                bot_trade_complete_data(bot_trades[len(bot_trades)-1])
+                wait_for_order_to_complete()
+
+            elif bot_trades[len(bot_trades)-1]['side'] == 'buy':
+                print('\nLast: Buy. Next: Sell ...')
+
+                spend = bot_trades[len(bot_trades)-1]['yield'] - bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')
+                print('Next Investment: ' + str(spend) + ' Banked: ' + str(bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')))
+                fee = market['maker'] * spend * -1
+                print('Next Fees: ' + str(fee))
+                min_target_price = ((spend + fee) / bot_trades[len(bot_trades)-1]['amount']) * -1
+                print('Price No Profit: ' + str(min_target_price))
+                target_price = (min_target_price - min_target_price * config.getfloat('auto_trade', 'price_change')) * -1
+                print('Price For Profit: ' + str(target_price))
+                est_outcome = spend / target_price
+                print('Outcome: ' + str(est_outcome))
+
+                order = post_order('sell', 'limit', est_outcome, target_price * -1, est_outcome * target_price * -1)
+                bot_trades.append({
+                    'trade': bot_trades[len(bot_trades)-1]['trade']+1,
+                    'id': order['id'],
+                    'timestamp': time.time(),
+                    'exchangetime': order['datetime'],
+                    'status': order['status'],
+                    'type': order['type'],
+                    'side': order['side'],
+                    'symbol': order['symbol'],
+                    'price': order['price'],
+                    'amount': order['amount'],
+                    'cost': 0.00,
+                    'fee': 0.00,
+                    'yield': 0.00,
+                    'cumulative_profit': 0.00
+                })
+                bot_trade_complete_data(bot_trades[len(bot_trades)-1])
+                wait_for_order_to_complete()
 
 
     except KeyboardInterrupt:
         pass
 
     input('Debugging Break! Press Any Key To Continue...')
-    print('Press [CONTROL + C] To Stop Trading!')
-    try:
-        while True:
-            bot_trades.append({
-                'trade': bot_trades[len(bot_trades)-1]['trade']+1,
-                'id': '',
-                'timestamp': time.time(),
-                'status': 'open',
-                'type': 'limit',
-                'side': 'buy',
-                'symbol': symbol,
-                'price': 0.1,
-                'amount': 100.00,
-                'cost': '',
-                'fee': '',
-                'yield': '',
-                'cumulative_profit': ''
-            })
 
-            bot_trade_complete_data(bot_trades[len(bot_trades)-1])
-            time.sleep(3)
-
-            bot_trades.append({
-                'trade': bot_trades[len(bot_trades)-1]['trade']+1,
-                'id': '',
-                'timestamp': time.time(),
-                'status': 'open',
-                'type': 'limit',
-                'side': 'sell',
-                'symbol': symbol,
-                'price': 0.2,
-                'amount': 100.00,
-                'cost': '',
-                'fee': '',
-                'yield': '',
-                'cumulative_profit': ''
-            })
-
-            bot_trade_complete_data(bot_trades[len(bot_trades)-1])
-            time.sleep(3)
-
-
-    except KeyboardInterrupt:
-        pass
 
 
     print('***')
