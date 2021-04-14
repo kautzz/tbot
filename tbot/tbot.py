@@ -338,7 +338,7 @@ def auto_trade():
                 print('Next Fees: ' + str(fee))
                 min_target_price = ((spend + fee) / bot_trades[len(bot_trades)-1]['amount']) * -1
                 print('Price No Profit: ' + str(min_target_price))
-                target_price = (min_target_price - min_target_price * config.getfloat('auto_trade', 'price_change')) * -1
+                target_price = (min_target_price + min_target_price * config.getfloat('auto_trade', 'price_change')) * -1
                 print('Price For Profit: ' + str(target_price))
                 est_outcome = spend / target_price
                 print('Outcome: ' + str(est_outcome))
