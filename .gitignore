@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 
 secrets.*
-logs/
+logs/*
+*.DS_Store

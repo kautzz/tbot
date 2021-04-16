@@ -19,6 +19,17 @@ from configparser import ConfigParser
 import ccxt
 import secrets
 
+on_pi = False
+try:
+    with open('/proc/device-tree/model', 'r') as model:
+        if 'Raspberry Pi' in model:
+            on_pi = True
+except:
+    pass
+
+if on_pi:
+    import blinkt
+    
 
 # Read Config File
 config = ConfigParser()
