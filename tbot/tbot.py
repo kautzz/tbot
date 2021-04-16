@@ -19,9 +19,11 @@ from configparser import ConfigParser
 import ccxt
 import secrets
 
+# This is temporary... maybe... gotta think about it...
 on_pi = False
 try:
-    with open('/proc/device-tree/model', 'r') as model:
+    with open('/proc/device-tree/model', 'r') as device_model:
+        model = device_model.read()
         if 'Raspberry Pi' in model:
             on_pi = True
 except:
@@ -29,7 +31,8 @@ except:
 
 if on_pi:
     import blinkt
-    
+    import colorsys
+
 
 # Read Config File
 config = ConfigParser()
@@ -563,6 +566,25 @@ def main():
     if exchange_status['status'] == 'ok':
 
         fetch_all()
+
+        # quick n dirty test!!!
+        if on_pi:
+            spacing = 360.0 / 16.0
+            hue = 0
+            blinkt.set_clear_on_exit()
+            blinkt.set_brightness(0.1)
+            t_end = time.time() + 10
+            while time.time() < t_end:
+                hue = int(time.time() * 100) % 360
+                for x in range(blinkt.NUM_PIXELS):
+                    offset = x * spacing
+                    h = ((hue + offset) % 360) / 360.0
+                    r, g, b = [int(c * 255) for c in colorsys.hsv_to_rgb(h, 1.0, 1.0)]
+                    blinkt.set_pixel(x, r, g, b)
+                blinkt.show()
+                time.sleep(0.001)
+            blinkt.clear()
+            blinkt.show()
 
         if args.verbose:
             # Show Features Supported By Exchage
