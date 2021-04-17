@@ -18,6 +18,11 @@ import ccxt
 import secrets
 
 import candy
+#import fetch
+#import trade
+#import bot
+#import util
+
 
 # Are we Running on a Raspberry Pi?
 candy.detect_hardware()
@@ -62,8 +67,6 @@ exchange = exchange_class({
     'timeout': 30000,
     'enableRateLimit': True,
 })
-
-
 
 
 # Format Dicts For Output In CLI

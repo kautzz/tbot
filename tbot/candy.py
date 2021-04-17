@@ -123,7 +123,7 @@ def detect_hardware():
         setup_blinkt()
 
 
-# Litte greeting on the oled display and LED bar
+# Litte greeting on the oled display and LED bar (if attached)
 def welcome_message():
 
     if got_blinkt:
@@ -145,7 +145,7 @@ def welcome_message():
         oled.show()
 
 
-# Clears and turns off oled display and LED bar
+# Clears and turns off oled display and LED bar (if attached)
 def clear():
 
     if got_blinkt:
@@ -159,7 +159,7 @@ def clear():
         oled.poweroff()
 
 
-# Plays a notification sound if enabled in config
+# Plays a notification sound (if enabled in config)
 def notification_sound():
     if config.getboolean('output', 'sound_enabled') == True:
         wave_obj = sa.WaveObject.from_wave_file("src/notification.wav")
