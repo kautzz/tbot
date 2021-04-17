@@ -6,8 +6,6 @@ tbot (WIP)
 """
 
 import time
-import datetime
-import simpleaudio as sa
 import json
 import os
 import sys
@@ -19,25 +17,14 @@ from configparser import ConfigParser
 import ccxt
 import secrets
 
-# This is temporary... maybe... gotta think about it...
-on_pi = False
-try:
-    with open('/proc/device-tree/model', 'r') as device_model:
-        model = device_model.read()
-        if 'Raspberry Pi' in model:
-            on_pi = True
-except:
-    pass
+import candy
 
-if on_pi:
-    import blinkt
-    import colorsys
-
+# Are we Running on a Raspberry Pi?
+candy.detect_hardware()
 
 # Read Config File
 config = ConfigParser()
 config.read('settings.ini')
-
 
 # Global Variables
 symbol = config.get('main', 'symbol')
@@ -77,41 +64,6 @@ exchange = exchange_class({
 })
 
 
-# Just A Gimmick, Prints A Nice Header To The CLI
-def print_header():
-    # TODO uncomment in production
-    #os.system('cls' if os.name == 'nt' else 'clear')
-    data_age = round(time.time() - data_fetch_time)
-    data_age_str = str(datetime.timedelta(seconds=data_age))
-    print(r"""
-   __  __          __
-  / /_/ /_  ____  / /_
- / __/ __ \/ __ \/ __/
-/ /_/ /_/ / /_/ / /_
-\__/_.___/\____/\__/__
-  ____ _/ / /  / /_/ /_  ___
- / __ `/ / /  / __/ __ \/ _ \
-/ /_/ / / /  / /_/ / / /  __/
-\__,_/_/_/   \__/_/ /_/\___/
-  ____________  ______  / /_____  _____
- / ___/ ___/ / / / __ \/ __/ __ \/ ___/
-/ /__/ /  / /_/ / /_/ / /_/ /_/ (__  )
-\___/_/   \__, / .___/\__/\____/____/
-         /____/_/
-
-    """)
-    print('-----------------------------------')
-    print(secrets.ex + ' / ' + symbol + ' / ' + simulation_pretty + ' / ' + data_age_str)
-    print('-----------------------------------\n')
-
-
-# Plays a notification sound if enabled in config
-def play_notification_sound():
-    log.info('Playing Notification Sound If Enabled')
-    if config.getboolean('main', 'sound_enabled') == True:
-        wave_obj = sa.WaveObject.from_wave_file("src/notification.wav")
-        play_obj = wave_obj.play()
-        play_obj.wait_done()
 
 
 # Format Dicts For Output In CLI
@@ -160,7 +112,7 @@ def get_market():
 def fetch_all():
     global data_fetch_time
     data_fetch_time = time.time()
-    print_header()
+    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
     print('Fetching Data...')
     get_ticker()
     get_market()
@@ -172,7 +124,7 @@ def fetch_all():
 
 # Show a summary of the most important Details
 def show_summary():
-    print_header()
+    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
     print('Here Is A Summary Of Your Data:')
     print('Fetched At: ' + time.ctime(data_fetch_time) + '\n')
 
@@ -201,7 +153,7 @@ def post_order(side, type, amount, price, cost):
 
     if simulation == False:
         order = exchange.createOrder(symbol, type, side, amount, price)
-        play_notification_sound()
+        candy.notification_sound()
         return order
 
     else:
@@ -396,7 +348,7 @@ def auto_trade():
 
 
 def manual_trade():
-    print_header()
+    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
 
     print('Setting Up A Manual Trade\n')
     print('Current Prices:')
@@ -489,7 +441,7 @@ def manual_trade():
 # Find Crypto Currencies on Exchange that are low minimum buy-in but rather high volume
 # Good for debugging
 def find_cheap_tradepairs():
-    print_header()
+    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
 
     tickers = exchange.fetch_tickers()
     tickers_tuples = list(ccxt.Exchange.keysort(tickers).items())
@@ -509,7 +461,7 @@ def find_cheap_tradepairs():
 
 # This Shows The Main Menu In The CLI
 def menu():
-    print_header()
+    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
     print('[0] Refetch All Data')
     print('[1] Show Summary')
     print('[2] Set Up A Manual Trade')
@@ -533,7 +485,7 @@ def menu():
         manual_trade()
 
     elif opt == '3':
-        print_header()
+        candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
         print('> This Aint Done Yet...')
         input('> Press RETURN To Continue...')
 
@@ -543,6 +495,7 @@ def menu():
 
     elif opt == 'Q' or opt == 'q':
         #os.system('cls' if os.name == 'nt' else 'clear') # todo uncomment for production
+        candy.clear()
         sys.exit('You Quit The Program!\nBruv You Gotta Spend Money To Make Money...\n')
 
 
@@ -551,13 +504,13 @@ def menu():
 
 
     else:
-        print_header()
+        candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
         print('> Invalid Answer! Read And Repeat!')
         input('> Press RETURN To Continue...')
 
 
 def main():
-    print_header()
+    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
 
     # Check Status Of Exchange & Continue When OK
     exchange_status = exchange.fetch_status()
@@ -565,26 +518,8 @@ def main():
 
     if exchange_status['status'] == 'ok':
 
-        fetch_all()
-
-        # quick n dirty test!!!
-        if on_pi:
-            spacing = 360.0 / 16.0
-            hue = 0
-            blinkt.set_clear_on_exit()
-            blinkt.set_brightness(0.1)
-            t_end = time.time() + 10
-            while time.time() < t_end:
-                hue = int(time.time() * 100) % 360
-                for x in range(blinkt.NUM_PIXELS):
-                    offset = x * spacing
-                    h = ((hue + offset) % 360) / 360.0
-                    r, g, b = [int(c * 255) for c in colorsys.hsv_to_rgb(h, 1.0, 1.0)]
-                    blinkt.set_pixel(x, r, g, b)
-                blinkt.show()
-                time.sleep(0.001)
-            blinkt.clear()
-            blinkt.show()
+        candy.welcome_message()
+        #fetch_all()
 
         if args.verbose:
             # Show Features Supported By Exchage
