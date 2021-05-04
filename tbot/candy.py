@@ -129,20 +129,62 @@ def welcome_message():
     if got_blinkt:
         for i in range(blinkt.NUM_PIXELS):
             blinkt.set_pixel(i, 0, 255, 0, 0.1)
-            time.sleep(0.1)
             blinkt.show()
 
     if got_oled:
         oled.poweron()
         draw.rectangle((0, 0, oled.width, oled.height), outline=0, fill=0)
 
-        draw.text((0, 0), '--------------------', font=font, fill=155)
+        draw.text((0, 0), '--------------------', font=font, fill=255)
         draw.text((0, 8), 'tbot all the', font=font, fill=255)
         draw.text((0, 16), 'cryptos', font=font, fill=255)
-        draw.text((0, 25), '--------------------', font=font, fill=155)
+        draw.text((0, 25), '--------------------', font=font, fill=255)
 
         oled.image(image)
         oled.show()
+
+
+def menu(ex, sym, sim, data_fetch_time):
+
+    if got_blinkt:
+        for i in range(blinkt.NUM_PIXELS):
+            blinkt.set_pixel(i, 255, 255, 255, 0.1)
+        blinkt.show()
+
+    if got_oled:
+        data_age = round(time.time() - data_fetch_time)
+        data_age_str = str(datetime.timedelta(seconds=data_age))
+
+        oled.poweron()
+        draw.rectangle((0, 0, oled.width, oled.height), outline=0, fill=0)
+
+        draw.text((0, 0), '--------------------', font=font, fill=255)
+        draw.text((0, 8), ex + ' / ' + sym, font=font, fill=255)
+        draw.text((0, 16), sim + ' / ' + data_age_str, font=font, fill=255)
+        draw.text((0, 25), '--------------------', font=font, fill=255)
+
+        oled.image(image)
+        oled.show()
+
+
+def bot_buy():
+    if got_blinkt:
+        blinkt.set_pixel(0, 0, 255, 0, 0.1)
+        blinkt.show()
+
+def bot_sell():
+    if got_blinkt:
+        blinkt.set_pixel(0, 255, 0, 0, 0.1)
+        blinkt.show()
+
+def bot_check_order():
+    if got_blinkt:
+        if blinkt.get_pixel(7)[3] > 0.0:
+            blinkt.set_pixel(7, 255, 255, 255, 0)
+        else:
+            blinkt.set_pixel(7, 255, 255, 255, 0.1)
+
+        blinkt.show()
 
 
 # Clears and turns off oled display and LED bar (if attached)

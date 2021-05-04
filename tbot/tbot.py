@@ -58,6 +58,11 @@ if args.verbose:
     log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
 
 
+# Format Dicts For Output In CLI
+def dump(dict):
+    return '\n' + '\n' + json.dumps(dict, indent=4, default=str) + '\n' + '\n'
+
+
 # Log In To Exchange
 print('Connecting To Crypto Exchange...')
 exchange_class = getattr(ccxt, secrets.ex)
@@ -67,11 +72,6 @@ exchange = exchange_class({
     'timeout': 30000,
     'enableRateLimit': True,
 })
-
-
-# Format Dicts For Output In CLI
-def dump(dict):
-    return '\n' + '\n' + json.dumps(dict, indent=4, default=str) + '\n' + '\n'
 
 
 # Get your last trade from the exchange and drop the info part
@@ -184,6 +184,7 @@ def auto_trade():
     def wait_for_order_to_complete():
         print("Waiting For Last Order To Complete ...")
         while True:
+            candy.bot_check_order()
             try:
                 last_order_status = exchange.fetch_closed_order(bot_trades[len(bot_trades)-1]['id'])
                 if last_order_status['status'] == 'closed':
@@ -193,14 +194,16 @@ def auto_trade():
                     break
             except:
                 pass
-
+            candy.bot_check_order()
             time.sleep(5)
 
+        get_ticker()
+        candy.clear()
 
-    get_ticker()
 
     # Decide Whether To Buy Or Sell First
     ## Get last 24h high and low to get the range of price movement
+    get_ticker()
     range = ticker['high'] - ticker['low']
     print('24h high-low range: ' + str(range))
     print('24h avg price: ' + str(ticker['low'] + range / 2))
@@ -266,6 +269,7 @@ def auto_trade():
         while True:
             if bot_trades[len(bot_trades)-1]['side'] == 'sell':
                 print('\nLast: Sell. Next: Buy ...')
+                candy.bot_buy()
 
                 spend = bot_trades[len(bot_trades)-1]['yield'] - bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')
                 print('Next Investment: ' + str(spend) + ' Banked: ' + str(bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')))
@@ -300,6 +304,7 @@ def auto_trade():
 
             elif bot_trades[len(bot_trades)-1]['side'] == 'buy':
                 print('\nLast: Buy. Next: Sell ...')
+                candy.bot_sell()
 
                 spend = bot_trades[len(bot_trades)-1]['yield'] - bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')
                 print('Next Investment: ' + str(spend) + ' Banked: ' + str(bot_trades[len(bot_trades)-1]['yield'] * config.getfloat('auto_trade', 'bank_profit')))
@@ -465,6 +470,7 @@ def find_cheap_tradepairs():
 # This Shows The Main Menu In The CLI
 def menu():
     candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
+    candy.menu(secrets.ex, symbol, simulation_pretty, data_fetch_time)
     print('[0] Refetch All Data')
     print('[1] Show Summary')
     print('[2] Set Up A Manual Trade')
@@ -476,6 +482,8 @@ def menu():
 
     opt = input('Select An Option: ')
     print('')
+
+    candy.clear()
 
     if opt == '0':
         fetch_all()
@@ -522,7 +530,7 @@ def main():
     if exchange_status['status'] == 'ok':
 
         candy.welcome_message()
-        #fetch_all()
+        fetch_all()
 
         if args.verbose:
             # Show Features Supported By Exchage
