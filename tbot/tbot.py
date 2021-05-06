@@ -18,7 +18,7 @@ import ccxt
 import secrets
 
 import candy
-#import fetch
+import fetch
 #import trade
 #import bot
 #import util
@@ -41,6 +41,7 @@ if simulation == True:
 else:
     simulation_pretty = 'HOT'
 
+exchange_name = secrets.ex
 market = ''
 ticker = ''
 wallets = ''
@@ -72,57 +73,6 @@ exchange = exchange_class({
     'timeout': 30000,
     'enableRateLimit': True,
 })
-
-
-# Get your last trade from the exchange and drop the info part
-def get_last_trade():
-    global last_trade
-    trades = exchange.fetch_my_trades(symbol)
-    last_trade = trades[len(trades)-1]
-    del last_trade['info']
-
-
-# Get All Open Orders
-def get_open_orders():
-    global open_orders
-    open_orders = exchange.fetch_open_orders(symbol)
-    for list_element in open_orders:
-	       del list_element['info']
-
-
-# Update the symbols ticker
-def get_ticker():
-    global ticker
-    ticker = exchange.fetch_ticker(symbol)
-    del ticker['info']
-
-
-# Update your wallet balance
-def get_wallet():
-    global wallets
-    wallets = exchange.fetch_balance()
-    del wallets['info']
-
-
-# Get Info About The Symbol About To Be Traded
-def get_market():
-    global market
-    markets = exchange.load_markets()
-    market = markets[symbol]
-
-
-# Get All Infos Needed From Exchange
-def fetch_all():
-    global data_fetch_time
-    data_fetch_time = time.time()
-    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
-    print('Fetching Data...')
-    get_ticker()
-    get_market()
-    get_last_trade()
-    get_wallet()
-    get_open_orders()
-    print('Done!')
 
 
 # Show a summary of the most important Details
@@ -197,13 +147,13 @@ def auto_trade():
             candy.bot_check_order()
             time.sleep(5)
 
-        get_ticker()
+        fetch.ticker()
         candy.clear()
 
 
     # Decide Whether To Buy Or Sell First
     ## Get last 24h high and low to get the range of price movement
-    get_ticker()
+    fetch.ticker()
     range = ticker['high'] - ticker['low']
     print('24h high-low range: ' + str(range))
     print('24h avg price: ' + str(ticker['low'] + range / 2))
@@ -441,7 +391,7 @@ def manual_trade():
 
         # TODO option for another manual trade
         input('\n> Press RETURN To Continue...')
-        fetch_all()
+        fetch.all()
 
     setup_manual_trade()
 
@@ -486,7 +436,7 @@ def menu():
     candy.clear()
 
     if opt == '0':
-        fetch_all()
+        fetch.all()
 
     elif opt == '1':
         show_summary()
@@ -530,7 +480,7 @@ def main():
     if exchange_status['status'] == 'ok':
 
         candy.welcome_message()
-        fetch_all()
+        fetch.all()
 
         if args.verbose:
             # Show Features Supported By Exchage

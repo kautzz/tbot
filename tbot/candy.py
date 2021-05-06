@@ -112,6 +112,7 @@ def detect_hardware():
                 print('Running On RaspberryPi!')
 
     except Exception as e:
+        got_pi = False
         print(e)
 
     if got_pi and config.getboolean('output', 'oled_attached'):
