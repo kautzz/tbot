@@ -23,7 +23,7 @@ def last_trade():
 def open_orders():
     ex.open_orders = ex.change.fetch_open_orders(ex.symbol)
     for list_element in ex.open_orders:
-	       del list_element['info']
+        del list_element['info']
 
 
 # Update the symbols ticker
