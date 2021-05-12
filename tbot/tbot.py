@@ -5,98 +5,19 @@
 tbot (WIP)
 """
 
-import time
-import json
 import os
 import sys
 
-import logging as log
-import argparse
-from configparser import ConfigParser
-
-import ccxt
-import secrets
-
+import debug
+import ex
 import candy
 import fetch
-#import trade
-#import bot
-#import util
-
+import trade
+import bot
+import util
 
 # Are we Running on a Raspberry Pi?
 candy.detect_hardware()
-
-# Read Config File
-config = ConfigParser()
-config.read('settings.ini')
-
-# Global Variables
-symbol = config.get('main', 'symbol')
-symbol_single = symbol.split('/', 1)
-
-simulation = config.getboolean('main', 'simulation')
-if simulation == True:
-    simulation_pretty = 'SIM'
-else:
-    simulation_pretty = 'HOT'
-
-exchange_name = secrets.ex
-market = ''
-ticker = ''
-wallets = ''
-last_trade = ''
-open_orders = ''
-data_fetch_time = time.time()
-
-
-# Command Line Options
-parser = argparse.ArgumentParser(description='tbot')
-parser.add_argument("-v", "--verbose", help="increase output verbosity", action="store_true")
-
-args = parser.parse_args()
-if args.verbose:
-    log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
-
-
-# Format Dicts For Output In CLI
-def dump(dict):
-    return '\n' + '\n' + json.dumps(dict, indent=4, default=str) + '\n' + '\n'
-
-
-# Log In To Exchange
-print('Connecting To Crypto Exchange...')
-exchange_class = getattr(ccxt, secrets.ex)
-exchange = exchange_class({
-    'apiKey': secrets.apiKey,
-    'secret': secrets.apiSec,
-    'timeout': 30000,
-    'enableRateLimit': True,
-})
-
-
-# Show a summary of the most important Details
-def show_summary():
-    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
-    print('Here Is A Summary Of Your Data:')
-    print('Fetched At: ' + time.ctime(data_fetch_time) + '\n')
-
-    wallet_summary = wallets
-    del wallet_summary['free']
-    del wallet_summary['used']
-    del wallet_summary['total']
-    print('Your Wallet Balances:' + dump(wallet_summary))
-
-    print('Open Orders: ' + dump(open_orders))
-
-    print('Your Last Trade:' + dump(last_trade))
-
-    market_summary = market
-    del market_summary['tiers']
-    print('Market Info: ' + dump(market_summary))
-
-    print('Ticker: ' + dump(ticker))
-
 
 # Create an order to buy or sell Crypto
 def post_order(side, type, amount, price, cost):
@@ -112,7 +33,6 @@ def post_order(side, type, amount, price, cost):
     else:
         print('You Are Running A Simulation! Nothing Happened...')
         return
-
 
 def auto_trade():
 
@@ -303,8 +223,6 @@ def auto_trade():
     with open('logs/bot-trades_' + time.strftime('%d-%m-%Y_%H-%M-%S', time.localtime(time.time())) + '.log', 'w') as file:
         file.write(dump(bot_trades))
 
-
-
 def manual_trade():
     candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
 
@@ -396,31 +314,10 @@ def manual_trade():
     setup_manual_trade()
 
 
-# Find Crypto Currencies on Exchange that are low minimum buy-in but rather high volume
-# Good for debugging
-def find_cheap_tradepairs():
-    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
-
-    tickers = exchange.fetch_tickers()
-    tickers_tuples = list(ccxt.Exchange.keysort(tickers).items())
-
-    markets = exchange.load_markets()
-    tuples = list(ccxt.Exchange.keysort(markets).items())
-
-    # output a table of all markets
-    print('{:<10} {:<7} {:<7} {:<7} {:<10} {:<10} {:<6} {:<13} {:<13}'.format('symbol', 'taker', 'maker', 'limit', 'bid', 'buyin', '%', 'vol', 'vol/buyin'))
-    for (k, v) in tuples:
-        if v['quote'] == 'USD':
-            if round(tickers[v['symbol']]['bid']*v['limits']['amount']['min'],6) <= 0.5:
-                if round(tickers[v['symbol']]['baseVolume']) >= 5000:
-                    if round(tickers[v['symbol']]['baseVolume']/tickers[v['symbol']]['bid']*v['limits']['amount']['min'],4) >= 50:
-                        print('{:<10} {:<7} {:<7} {:<7} {:<10} {:<10} {:<6} {:<13} {:<13}'.format(v['symbol'], v['taker'], v['maker'], v['limits']['amount']['min'], tickers[v['symbol']]['bid'], round(tickers[v['symbol']]['bid']*v['limits']['amount']['min'],6), round(tickers[v['symbol']]['percentage'],3), round(tickers[v['symbol']]['baseVolume'],3), round(tickers[v['symbol']]['baseVolume']/tickers[v['symbol']]['bid']*v['limits']['amount']['min'],4)))
-
-
 # This Shows The Main Menu In The CLI
 def menu():
-    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
-    candy.menu(secrets.ex, symbol, simulation_pretty, data_fetch_time)
+    candy.cli_header()
+    candy.menu()
     print('[0] Refetch All Data')
     print('[1] Show Summary')
     print('[2] Set Up A Manual Trade')
@@ -439,19 +336,19 @@ def menu():
         fetch.all()
 
     elif opt == '1':
-        show_summary()
+        util.show_summary()
         input('Press RETURN To Continue...')
 
     elif opt == '2':
         manual_trade()
 
     elif opt == '3':
-        candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
+        candy.cli_header()
         print('> This Aint Done Yet...')
         input('> Press RETURN To Continue...')
 
     elif opt == '4':
-        find_cheap_tradepairs()
+        util.find_cheap_tradepairs()
         input('\n> Press RETURN To Continue...')
 
     elif opt == 'Q' or opt == 'q':
@@ -465,37 +362,27 @@ def menu():
 
 
     else:
-        candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
+        candy.cli_header()
         print('> Invalid Answer! Read And Repeat!')
         input('> Press RETURN To Continue...')
 
 
 def main():
-    candy.cli_header(secrets.ex, symbol, simulation_pretty, data_fetch_time)
+    candy.cli_header()
+    ex.login()
 
     # Check Status Of Exchange & Continue When OK
-    exchange_status = exchange.fetch_status()
-    log.info('Exchange Status:' + dump(exchange_status))
-
+    exchange_status = fetch.status()
     if exchange_status['status'] == 'ok':
 
         candy.welcome_message()
         fetch.all()
 
-        if args.verbose:
-            # Show Features Supported By Exchage
-            exchange_features = exchange.has
-            log.info('Exchange Features:' + dump(exchange_features))
-
-        if args.verbose:
-            # Show Symbol Details / Info
-            log.info('Market Info For ' + symbol + ' :' + dump(market))
-
         while True:
             menu()
 
     else:
-        log.critical('Exchange Status Is Not OK!')
+        debug.log.critical('Could Not Connect To Exchange!')
 
 
 if __name__ == "__main__":

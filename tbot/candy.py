@@ -9,10 +9,13 @@ All eyecandy functions are here. This includes:
 
 """
 
+import ex
 import time
 import datetime
 import simpleaudio as sa
 from configparser import ConfigParser
+import json
+
 
 # Read Config File
 config = ConfigParser()
@@ -30,11 +33,11 @@ blinkt = 0
 
 
 # Prints A Nice Header To The CLI
-def cli_header(ex, sym, sim, data_fetch_time):
+def cli_header():
 
     # TODO uncomment in production
     #os.system('cls' if os.name == 'nt' else 'clear')
-    data_age = round(time.time() - data_fetch_time)
+    data_age = round(time.time() - ex.data_fetch_time)
     data_age_str = str(datetime.timedelta(seconds=data_age))
 
     print(r"""
@@ -55,7 +58,7 @@ def cli_header(ex, sym, sim, data_fetch_time):
 
     """)
     print('-----------------------------------')
-    print(ex + ' / ' + sym + ' / ' + sim + ' / ' + data_age_str)
+    print(ex.change_name + ' / ' + ex.symbol + ' / ' + ex.simulation_pretty + ' / ' + data_age_str)
     print('-----------------------------------\n')
 
 
@@ -127,6 +130,7 @@ def detect_hardware():
 # Litte greeting on the oled display and LED bar (if attached)
 def welcome_message():
 
+    print('Login Successful, Welcome To tbot!')
     if got_blinkt:
         for i in range(blinkt.NUM_PIXELS):
             blinkt.set_pixel(i, 0, 255, 0, 0.1)
@@ -145,7 +149,7 @@ def welcome_message():
         oled.show()
 
 
-def menu(ex, sym, sim, data_fetch_time):
+def menu():
 
     if got_blinkt:
         for i in range(blinkt.NUM_PIXELS):
@@ -153,15 +157,15 @@ def menu(ex, sym, sim, data_fetch_time):
         blinkt.show()
 
     if got_oled:
-        data_age = round(time.time() - data_fetch_time)
+        data_age = round(time.time() - ex.data_fetch_time)
         data_age_str = str(datetime.timedelta(seconds=data_age))
 
         oled.poweron()
         draw.rectangle((0, 0, oled.width, oled.height), outline=0, fill=0)
 
         draw.text((0, 0), '--------------------', font=font, fill=255)
-        draw.text((0, 8), ex + ' / ' + sym, font=font, fill=255)
-        draw.text((0, 16), sim + ' / ' + data_age_str, font=font, fill=255)
+        draw.text((0, 8), ex.change_name + ' / ' + ex.symbol, font=font, fill=255)
+        draw.text((0, 16), ex.simulation_pretty + ' / ' + data_age_str, font=font, fill=255)
         draw.text((0, 25), '--------------------', font=font, fill=255)
 
         oled.image(image)
@@ -200,6 +204,11 @@ def clear():
         oled.fill(0)
         oled.show()
         oled.poweroff()
+
+
+# Format Dicts For Output In CLI
+def dump(dict):
+    return '\n' + '\n' + json.dumps(dict, indent=4, default=str) + '\n' + '\n'
 
 
 # Plays a notification sound (if enabled in config)
