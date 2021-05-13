@@ -23,12 +23,12 @@ apiKey = "your_exchange_api_key"
 apiSec = "your_exchange_api_secret"
 ```
 
- See [CCXT Exchanges](https://github.com/ccxt/ccxt#certified-cryptocurrency-exchanges) for more details.
+ See [CCXT Exchanges](https://github.com/ccxt/ccxt#certified-cryptocurrency-exchanges) for more details. <br /><br />
 
 Check the `settings.ini` file to configure the software.
 
 * `symbol = DOGE/USD` is the currency pair you would like to trade
-* `simulation = false` when true will not place any real orders on your exchange
+* `simulation = false` when true will not place any real orders on your exchange <br /><br />
 
 Run with `python -m tbot` use `python -m tbot -v` for verbose output.
 
