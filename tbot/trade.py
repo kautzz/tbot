@@ -18,8 +18,9 @@ def post_order(side, type, amount, price, cost):
     print('Total: ' + str(cost) + ' ' + ex.symbol_single[1] + '\n')
 
     if ex.simulation == False:
-        order = ex.change.createOrder(symbol, type, side, amount, price)
+        order = ex.change.createOrder(ex.symbol, type, side, amount, price)
         candy.notification_sound()
+        debug.log.info('Created Order: ' + candy.dump(order))
         return order
 
     else:

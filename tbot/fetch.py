@@ -1,8 +1,6 @@
 """
 tbot fetch.py
-Fetching Data From The Exchange. This includes:
-
-*
+Fetching Data From The Exchange.
 
 """
 
@@ -47,7 +45,7 @@ def market():
 # Get Status Info Of The Exchage
 def status():
     ex.status = ex.change.fetch_status()
-    debug.log.info('Exchange Status:' + candy.dump(ex.status))
+    debug.log.info('Got Exchange Status:' + candy.dump(ex.status))
     debug.log.info('Exchange Features:' + candy.dump(ex.change.has))
     return ex.status
 

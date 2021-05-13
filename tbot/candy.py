@@ -9,6 +9,7 @@ All eyecandy functions are here. This includes:
 
 """
 
+import os
 import ex
 import time
 import datetime

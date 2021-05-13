@@ -8,13 +8,13 @@ tbot (WIP)
 import os
 import sys
 
-import debug
 import ex
 import candy
 import fetch
 import trade
 import bot
 import util
+import debug
 
 
 # Are we Running on a Raspberry Pi?
@@ -65,7 +65,7 @@ def menu():
 
 
     elif opt == 'T' or opt == 't':
-        bot.auto_trade()
+        bot.min_margin_auto_trade()
 
 
     else:
