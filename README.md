@@ -4,23 +4,21 @@
 
 Using the [CCXT API](https://github.com/ccxt/ccxt) this software connects to your favourite crypto currency exchange and offers a CLI for setting up manual trades for a crypto currency of your choice. Currently it supports placing market and limit orders.
 
-A utility function let's you find volatile crypto currencies with a cheap minimum buyin that may be used for automated trading. Automated trading is still in development and should be considered a proof of concept for now...
+A utility function lets you find volatile crypto currencies with a cheap minimum buyin that may be used for automated trading. Automated trading is still in development and should be considered a proof of concept only.
 
 The software also offers support for running on a RaspberryPi especially in combination with the [Blinkt!](https://github.com/pimoroni/blinkt) LED module and / or the [Adafruit PiOLED](https://github.com/adafruit/Adafruit_CircuitPython_SSD1306) display for pretty eye-candy.
 
 ---
 
-Attention:
+> Attention: Use At Your Own Risk!
 
-> Use At Your Own Risk!
-
-General Trading Advice:
+**General Trading Advice:**
 
 > Do Not Spend Money You Can't Afford To Lose!
 
 ---
 
-Add `secrets.py` to the root folder and add details for your exchange. See [CCXT Exchanges](https://github.com/ccxt/ccxt#certified-cryptocurrency-exchanges) for more details.
+Add `secrets.py` to the root folder and add details for your exchange:
 
 ```
 """
@@ -33,8 +31,11 @@ apiKey = "your_exchange_api_key"
 apiSec = "your_exchange_api_secret"
 ```
 
+ See [CCXT Exchanges](https://github.com/ccxt/ccxt#certified-cryptocurrency-exchanges) for more details.
+
 Check the `settings.ini` file to configure the software.
-`symbol` is the currency pair you would like to trade
-`simulation` when true will not place any real orders on your exchange
+
+* `symbol = DOGE/USD` is the currency pair you would like to trade
+* `simulation = false` when true will not place any real orders on your exchange
 
 Run with `python -m tbot` use `python -m tbot -v` for verbose output.
