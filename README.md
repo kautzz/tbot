@@ -10,14 +10,6 @@ The software also offers support for running on a RaspberryPi especially in comb
 
 ---
 
-> Attention: Use At Your Own Risk!
-
-**General Trading Advice:**
-
-> Do Not Spend Money You Can't Afford To Lose!
-
----
-
 Add `secrets.py` to the root folder and add details for your exchange:
 
 ```
@@ -39,3 +31,11 @@ Check the `settings.ini` file to configure the software.
 * `simulation = false` when true will not place any real orders on your exchange
 
 Run with `python -m tbot` use `python -m tbot -v` for verbose output.
+
+---
+
+**General Trading Advice:**
+
+> Do Not Spend Money You Can't Afford To Lose!
+
+> Use At Your Own Risk!
