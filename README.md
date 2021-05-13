@@ -37,5 +37,4 @@ Run with `python -m tbot` use `python -m tbot -v` for verbose output.
 **General Trading Advice:**
 
 > Do Not Spend Money You Can't Afford To Lose!
-
 > Use At Your Own Risk!
