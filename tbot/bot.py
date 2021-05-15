@@ -96,7 +96,7 @@ def max_margin_auto_trade():
 
     TODO:
 
-    * Sets up an initial Buy or Sell - MAYBE
+    * Sets up an initial Buy or Sell
     * Creates a limit order for a price change definded in settings - NO
     * Waits until the price hits the target and the order completes - YES
     * Creates a new limit order for the definded price change in the opposite direction - SIMILAR
