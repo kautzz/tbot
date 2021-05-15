@@ -27,7 +27,11 @@ global status
 global market
 global ticker
 global wallets
-global last_trade
+global last_trade # Legacy for min margin bot TODO refactor
+
+global bot_last_order
+global bot_orders = []
+
 global open_orders
 global data_fetch_time
 data_fetch_time = time.time()

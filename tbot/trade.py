@@ -69,10 +69,10 @@ def manual_trade():
                 order_type = input('Select An Option: ')
 
                 if order_type == '3':
-                    post_order('buy', 'market', buy_in/ex.ticker['ask'], ex.ticker['ask'], buy_in)
+                    return post_order('buy', 'market', buy_in/ex.ticker['ask'], ex.ticker['ask'], buy_in)
                 elif order_type == '4':
                     desired_price = float(input('At What Price Do You Want To Buy? ' + ex.symbol_single[1] + ': '))
-                    post_order('buy', 'limit', buy_in/desired_price, desired_price, buy_in)
+                    return post_order('buy', 'limit', buy_in/desired_price, desired_price, buy_in)
                 elif order_type == 'Q' or order_type == 'q':
                     return
 
@@ -97,10 +97,10 @@ def manual_trade():
                 order_type = input('Select An Option: ')
 
                 if order_type == '3':
-                    post_order('sell', 'market', sell_out, ex.ticker['bid'], sell_out*ex.ticker['bid'])
+                    return post_order('sell', 'market', sell_out, ex.ticker['bid'], sell_out*ex.ticker['bid'])
                 elif order_type == '4':
                     desired_price = float(input('At What Price Do You Want To Sell? ' + ex.symbol_single[1] + ': '))
-                    post_order('sell', 'limit', sell_out, desired_price, sell_out*desired_price)
+                    return post_order('sell', 'limit', sell_out, desired_price, sell_out*desired_price)
                 elif order_type == 'Q' or order_type == 'q':
                     return
 

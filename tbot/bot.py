@@ -19,6 +19,119 @@ from configparser import ConfigParser
 config = ConfigParser()
 config.read('settings.ini')
 
+def add_bot_order(order):
+    """
+    The last order executed by any of the bots.
+
+    * Takes response from exchange after placing an order
+    * Stores the response into an array
+    * Calculates extra metrics for decisionmaking
+
+    """
+
+    order_to_add = [{
+        'trade': 0,
+        'id': order['id'],
+        'timestamp': time.time(),
+        'exchangetime': order['datetime'],
+        'status': order['status'],
+        'type': order['type'],
+        'side': order['side'],
+        'symbol': order['symbol'],
+        'price': order['price'],
+        'amount': order['amount'],
+        'cost': 0.00,
+        'fee': 0.00,
+        'yield': 0.00,
+        'cumulative_profit': 0.00
+    }]
+
+    order_to_add['cost'] = order_to_add['price'] * order_to_add['amount']
+
+    if order_to_add['type'] == 'limit':
+        order_to_add['fee'] = ex.market['maker'] * order_to_add['cost']
+    elif order_to_add['type'] == 'market':
+        order_to_add['fee'] = ex.market['taker'] * order_to_add['cost']
+
+    if order_to_add['side'] == 'buy':
+        order_to_add['yield'] = (order_to_add['cost'] + order_to_add['fee'])
+    elif order_to_add['side'] == 'sell':
+        order_to_add['yield'] = order_to_add['cost'] - order_to_add['fee']
+
+    # sketchy...
+    order_to_add['cumulative_profit'] = bot_trades[len(bot_trades)-2]['cumulative_profit'] + order_to_add['yield']
+
+    ex.bot_orders.append(order_to_add)
+    ex.bot_last_order = order_to_add
+
+    debug.log.info('Added To Bot Orders: ' + candy.dump(order_to_add))
+    return ex.bot_orders[len(ex.bot_orders)-1]
+
+
+def order_status(order):
+    print("Waiting For " +  + " To Complete ...")
+    while True:
+        candy.bot_check_order()
+        try:
+            last_order_status = ex.change.fetch_closed_order(bot_trades[len(bot_trades)-1]['id'])
+            if last_order_status['status'] == 'closed':
+                bot_trades[len(bot_trades)-1]['status'] = 'closed'
+                print('Filled:')
+                print(candy.dump(bot_trades[len(bot_trades)-1]))
+                break
+        except:
+            debug.log.info('Could Not Get A Closed Order With ID: ' + str(bot_trades[len(bot_trades)-1]['id']))
+
+        candy.bot_check_order()
+        time.sleep(5)
+
+    fetch.ticker()
+    candy.clear()
+
+
+
+def max_margin_auto_trade():
+    """
+    Bot For Automatic Trading Of A Maximum Margin
+
+    TODO:
+
+    * Sets up an initial Buy or Sell - MAYBE
+    * Creates a limit order for a price change definded in settings - NO
+    * Waits until the price hits the target and the order completes - YES
+    * Creates a new limit order for the definded price change in the opposite direction - SIMILAR
+    * Fees for each trade are automatically calculated and added to target price change - YES
+    * Optionally banks a profit percentage on each order as defined in settings - MAYBE
+    """
+
+    # You can start this bot with a manual trade if you like
+    last_post = trade.manual_trade()
+    if last_post:
+        add_bot_order(last_post)
+
+    # TODO trade Logic
+    ## Buy OR Sell
+
+    print('Press [CONTROL + C] To Stop Trading!')
+    try:
+        while True:
+
+        ## Peak Detection
+
+        last_bot_post = trade.post_order(side, type, amount, price, cost)
+        if last_bot_post:
+            add_bot_order(last_bot_post)
+
+    except KeyboardInterrupt:
+        pass
+
+    with open('logs/max_margin_bot_trades_' + time.strftime('%d-%m-%Y_%H-%M-%S', time.localtime(time.time())) + '.log', 'w') as file:
+        file.write(candy.dump(ex.bot_orders))
+
+
+
+    return
+
 
 
 def min_margin_auto_trade():
@@ -227,5 +340,5 @@ def min_margin_auto_trade():
 
 
     input('Press Any Key To Continue...')
-    with open('logs/bot-trades_' + time.strftime('%d-%m-%Y_%H-%M-%S', time.localtime(time.time())) + '.log', 'w') as file:
+    with open('logs/min_margin_bot_trades_' + time.strftime('%d-%m-%Y_%H-%M-%S', time.localtime(time.time())) + '.log', 'w') as file:
         file.write(candy.dump(bot_trades))
